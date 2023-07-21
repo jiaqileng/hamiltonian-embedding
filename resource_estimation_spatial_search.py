@@ -200,23 +200,23 @@ if __name__ == "__main__":
     print(f"Trotter order: {trotter_order}")
 
     N_vals_binary = np.arange(4, 21)
-    N_vals_unary = np.arange(4, 9)
+    N_vals_unary = np.arange(4, 11)
 
     unary_trotter_steps = np.zeros(len(N_vals_unary), dtype=int)
     unary_two_qubit_gate_count_per_trotter_step = np.zeros(len(N_vals_unary))
 
-    # print("Running resource estimation for standard binary encoding", flush=True)
-    # res = Parallel(n_jobs=num_jobs)(delayed(get_binary_resource_estimate)(N, dimension, error_tol) for N in N_vals_binary)
-    # binary_two_qubit_gate_count_per_trotter_step, binary_trotter_steps = zip(*res)
-    # binary_two_qubit_gate_count_per_trotter_step = np.array(binary_two_qubit_gate_count_per_trotter_step)
-    # binary_trotter_steps = np.array(binary_trotter_steps, dtype=int)
+    print("Running resource estimation for standard binary encoding", flush=True)
+    res = Parallel(n_jobs=num_jobs)(delayed(get_binary_resource_estimate)(N, dimension, error_tol) for N in N_vals_binary)
+    binary_two_qubit_gate_count_per_trotter_step, binary_trotter_steps = zip(*res)
+    binary_two_qubit_gate_count_per_trotter_step = np.array(binary_two_qubit_gate_count_per_trotter_step)
+    binary_trotter_steps = np.array(binary_trotter_steps, dtype=int)
 
-    # print(binary_two_qubit_gate_count_per_trotter_step)
-    # print(binary_trotter_steps)
-    # np.savez(join("resource_data", "resource_estimation_spatial_search_binary.npz"),
-    #             N_vals_binary=N_vals_binary,
-    #             binary_trotter_steps=binary_trotter_steps,
-    #             binary_two_qubit_gate_count_per_trotter_step=binary_two_qubit_gate_count_per_trotter_step)
+    print(binary_two_qubit_gate_count_per_trotter_step)
+    print(binary_trotter_steps)
+    np.savez(join("resource_data", "resource_estimation_spatial_search_binary.npz"),
+                N_vals_binary=N_vals_binary,
+                binary_trotter_steps=binary_trotter_steps,
+                binary_two_qubit_gate_count_per_trotter_step=binary_two_qubit_gate_count_per_trotter_step)
 
 
     # Antiferromagnetic encoding
