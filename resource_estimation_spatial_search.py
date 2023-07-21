@@ -67,46 +67,51 @@ def get_binary_resource_estimate(N, dimension, error_tol, order=1):
     return num_two_qubit_gates, r_max
 
 def get_H_spatial_search(n, lamb, gamma, encoding):
-    if encoding == "antiferromagnetic":
-        assert n % 2 == 1, "only works for odd number of qubits"
-    J = np.zeros((2 * n, 2 * n))
-    h = np.zeros(2 * n)
+    if encoding == "unary" or encoding == "antiferromagnetic":
+        if encoding == "antiferromagnetic":
+            assert n % 2 == 1, "only works for odd number of qubits"
+        J = np.zeros((2 * n, 2 * n))
+        h = np.zeros(2 * n)
 
-    for i in range(2):
-        h[i * n] = 1
-        if encoding == "unary":
-            h[(i + 1) * n - 1] = -1
-        else:
-            h[(i + 1) * n - 1] = (-1) ** (n)
-        for j in np.arange(i * n, (i + 1) * n - 1):
+        for i in range(2):
+            h[i * n] = 1
             if encoding == "unary":
-                J[j, j + 1] = -1
+                h[(i + 1) * n - 1] = -1
             else:
-                J[j, j + 1] = 1
+                h[(i + 1) * n - 1] = (-1) ** (n)
+            
+            for j in np.arange(i * n, (i + 1) * n - 1):
+                if encoding == "unary":
+                    J[j, j + 1] = -1
+                else:
+                    J[j, j + 1] = 1
 
-    H_pen = lamb * (sum_J_zz(2 * n, J) + sum_h_z(2 * n, h))
+        H_pen = lamb * (sum_J_zz(2 * n, J) + sum_h_z(2 * n, h))
 
-    # Create the oracle Hamiltonian
-    V = np.zeros((2 * n, 2 * n))
-    V[n-1, n] = 1
+        # Create the oracle Hamiltonian
+        J = np.zeros((2 * n, 2 * n))
+        J[n-1, n] = 1/4
 
-    h = np.zeros(2 * n)
-    h[n-1] = -1
-    
-    H_oracle = sum_delta_n(2 * n, h) + sum_V_nn(2 * n, V)
+        h = np.zeros(2 * n)
+        h[n-1] = 1/4
+        h[n] = -1/4
 
-    # Correction term for Laplacian
-    h_correction = np.zeros(2 * n)
-    for i in range(2):
-        h_correction[i * n] = -1
-        if encoding == "unary":
-            h_correction[(i + 1) * n - 1] = 1
-        else:
-            h_correction[(i + 1) * n - 1] = (-1) ** (n+1)
-    
-    return H_pen + H_oracle - gamma * sum_delta_n(2 * n, h_correction), - gamma * sum_x(2 * n)
+        H_oracle = sum_h_z(2 * n, h) + sum_J_zz(2 * n, J)
+
+        # Correction term for Laplacian
+        h_correction = np.zeros(2 * n)
+        for i in range(2):
+            h_correction[i * n] = 1/2
+            if encoding == "unary":
+                h_correction[(i + 1) * n - 1] = -1/2
+            else:
+                h_correction[(i + 1) * n - 1] = -(-1) ** (n+1) / 2
+        H_correction = - gamma * sum_h_z(2 * n, h_correction)
+
+        return H_pen + H_oracle + H_correction, - gamma * sum_x(2 * n)
 
 def get_spatial_search_one_trotter_step_circuit(n, lamb, gamma, T, r, encoding, order=1):
+    assert encoding == "unary" or encoding == "antiferromagnetic"
     one_step_circ = Circuit()
     
     if order == 1:
@@ -119,46 +124,13 @@ def get_spatial_search_one_trotter_step_circuit(n, lamb, gamma, T, r, encoding, 
             one_step_circ.rz(i * n, 2 * lamb * T / r)
             if encoding == "unary":
                 one_step_circ.rz((i + 1) * n - 1, - 2 * lamb * T / r)
-            if encoding == "antiferromagnetic":
+            else:
                 one_step_circ.rz((i + 1) * n - 1, (-1) ** (n) * 2 * lamb * T / r)
             
             for j in np.arange(i * n, (i + 1) * n - 1):
                 if encoding == "unary":
                     one_step_circ.zz(j, j+1, -2 * lamb * T / r)
-                elif encoding == "antiferromagnetic":
-                    one_step_circ.zz(j, j+1, 2 * lamb * T / r)
-
-        # oracle term
-        one_step_circ.xx(n-1, n, (T / r) / 2)
-        one_step_circ.rx(n-1, (T / r) / 2)
-        one_step_circ.rx(n, -(T / r) / 2)
-
-        # laplacian correction term
-        for i in range(2):
-            one_step_circ.rz(i * n, -gamma * T / r)
-            if encoding == "unary":
-                one_step_circ.rz((i + 1) * n - 1, gamma * T / r)
-            elif encoding == "antiferromagnetic":
-                one_step_circ.rz((i + 1) * n - 1, (-1) ** (n+1) * gamma * T / r)
-
-    
-    elif order == 2:
-        # x rotations
-        for i in range(2 * n):
-            one_step_circ.rx(i, - gamma * T / r)
-
-        # penalty term
-        for i in range(2):
-            one_step_circ.rz(i * n, 2 * lamb * T / r)
-            if encoding == "unary":
-                one_step_circ.rz((i + 1) * n - 1, - 2 * lamb * T / r)
-            if encoding == "antiferromagnetic":
-                one_step_circ.rz((i + 1) * n - 1, (-1) ** (n) * 2 * lamb * T / r)
-            
-            for j in np.arange(i * n, (i + 1) * n - 1):
-                if encoding == "unary":
-                    one_step_circ.zz(j, j+1, -2 * lamb * T / r)
-                elif encoding == "antiferromagnetic":
+                else:
                     one_step_circ.zz(j, j+1, 2 * lamb * T / r)
 
         # oracle term
@@ -171,7 +143,39 @@ def get_spatial_search_one_trotter_step_circuit(n, lamb, gamma, T, r, encoding, 
             one_step_circ.rz(i * n, -gamma * T / r)
             if encoding == "unary":
                 one_step_circ.rz((i + 1) * n - 1, gamma * T / r)
-            elif encoding == "antiferromagnetic":
+            else:
+                one_step_circ.rz((i + 1) * n - 1, (-1) ** (n+1) * gamma * T / r)
+    
+    elif order == 2:
+        # x rotations
+        for i in range(2 * n):
+            one_step_circ.rx(i, - gamma * T / r)
+
+        # penalty term
+        for i in range(2):
+            one_step_circ.rz(i * n, 2 * lamb * T / r)
+            if encoding == "unary":
+                one_step_circ.rz((i + 1) * n - 1, - 2 * lamb * T / r)
+            else:
+                one_step_circ.rz((i + 1) * n - 1, (-1) ** (n) * 2 * lamb * T / r)
+            
+            for j in np.arange(i * n, (i + 1) * n - 1):
+                if encoding == "unary":
+                    one_step_circ.zz(j, j+1, -2 * lamb * T / r)
+                else:
+                    one_step_circ.zz(j, j+1, 2 * lamb * T / r)
+
+        # oracle term
+        one_step_circ.zz(n-1, n, (T / r) / 2)
+        one_step_circ.rz(n-1, (T / r) / 2)
+        one_step_circ.rz(n, -(T / r) / 2)
+
+        # laplacian correction term
+        for i in range(2):
+            one_step_circ.rz(i * n, -gamma * T / r)
+            if encoding == "unary":
+                one_step_circ.rz((i + 1) * n - 1, gamma * T / r)
+            else:
                 one_step_circ.rz((i + 1) * n - 1, (-1) ** (n+1) * gamma * T / r)
             
         # x rotations
@@ -185,7 +189,7 @@ def get_spatial_search_one_trotter_step_circuit(n, lamb, gamma, T, r, encoding, 
 if __name__ == "__main__":
     
     print("Resource estimation for spatial search.")
-    num_jobs = 64
+    num_jobs = 16
     print("Number of jobs:", num_jobs)
 
     dimension = 2
@@ -195,24 +199,24 @@ if __name__ == "__main__":
     print(f"Error tolerance: {error_tol : 0.2f}.")
     print(f"Trotter order: {trotter_order}")
 
-    N_vals_binary = np.arange(4, 32)
+    N_vals_binary = np.arange(4, 21)
     N_vals_unary = np.arange(4, 9)
 
     unary_trotter_steps = np.zeros(len(N_vals_unary), dtype=int)
     unary_two_qubit_gate_count_per_trotter_step = np.zeros(len(N_vals_unary))
 
-    print("Running resource estimation for standard binary encoding", flush=True)
-    res = Parallel(n_jobs=num_jobs)(delayed(get_binary_resource_estimate)(N, dimension, error_tol) for N in N_vals_binary)
-    binary_two_qubit_gate_count_per_trotter_step, binary_trotter_steps = zip(*res)
-    binary_two_qubit_gate_count_per_trotter_step = np.array(binary_two_qubit_gate_count_per_trotter_step)
-    binary_trotter_steps = np.array(binary_trotter_steps, dtype=int)
+    # print("Running resource estimation for standard binary encoding", flush=True)
+    # res = Parallel(n_jobs=num_jobs)(delayed(get_binary_resource_estimate)(N, dimension, error_tol) for N in N_vals_binary)
+    # binary_two_qubit_gate_count_per_trotter_step, binary_trotter_steps = zip(*res)
+    # binary_two_qubit_gate_count_per_trotter_step = np.array(binary_two_qubit_gate_count_per_trotter_step)
+    # binary_trotter_steps = np.array(binary_trotter_steps, dtype=int)
 
-    print(binary_two_qubit_gate_count_per_trotter_step)
-    print(binary_trotter_steps)
-    np.savez(join("resource_data", "resource_estimation_spatial_search_binary.npz"),
-                N_vals_binary=N_vals_binary,
-                binary_trotter_steps=binary_trotter_steps,
-                binary_two_qubit_gate_count_per_trotter_step=binary_two_qubit_gate_count_per_trotter_step)
+    # print(binary_two_qubit_gate_count_per_trotter_step)
+    # print(binary_trotter_steps)
+    # np.savez(join("resource_data", "resource_estimation_spatial_search_binary.npz"),
+    #             N_vals_binary=N_vals_binary,
+    #             binary_trotter_steps=binary_trotter_steps,
+    #             binary_two_qubit_gate_count_per_trotter_step=binary_two_qubit_gate_count_per_trotter_step)
 
 
     # Antiferromagnetic encoding
@@ -238,7 +242,6 @@ if __name__ == "__main__":
         H_oracle = - csc_matrix(np.outer(marked_vertex, marked_vertex))
         # Sign is flipped here; this function minimizes the difference between the two largest eigenvalues of gamma * L + H_oracle
         gamma = scipy_get_optimal_gamma(L, -H_oracle, 0.3)
-
         codewords = get_codewords_2d(n, encoding, periodic=False)
 
         lamb = dimension * n
@@ -251,7 +254,6 @@ if __name__ == "__main__":
         r_min, r_max = 1, 10
         while estimate_trotter_error(N, A + B, get_spatial_search_one_trotter_step_circuit(n, lamb, gamma, T, r_max, encoding, order=trotter_order), r_max, dimension, encoding, codewords, device, num_samples, num_jobs) > error_tol:
             r_max *= 2
-
         # binary search for r
         while r_max - r_min > 1:
             r = (r_min + r_max) // 2
