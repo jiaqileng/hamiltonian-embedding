@@ -165,6 +165,23 @@ def sum_J_xx(n : int, J : np.ndarray) -> np.ndarray:
             
     return res
 
+def sum_J_yy(n : int, J : np.ndarray) -> np.ndarray:
+    '''
+    Returns `\sum_{i,j} J_{i,j} \sigma_y^{(i)} \sigma_y^{(j)}` where `\sigma_y^{(i)}` 
+    is the Pauli-y operator on the ith qubit.
+    '''
+    assert n > 0
+    assert J.shape == (n,n)
+
+    dims = [2 ** i for i in range(n)]
+
+    res = csc_matrix((2 ** n, 2 ** n))
+    for i in range(n):
+        for j in range(i):
+            res += (J[i,j] + J[j,i]) * tensor([identity(dims[n-i-1], format='csr'), PAULI_Y, identity(dims[i-j-1], format='csr'), PAULI_Y, identity(dims[j], format='csr')])
+            
+    return res
+
 def get_adjacency_lattice(n : int, d : int):
     L_1D = np.zeros((n,n))
 
@@ -444,7 +461,7 @@ def get_bitstrings(N, dimension, encoding):
     indices = np.zeros(dimension, dtype=int)
     for i in range(N ** dimension):
         
-        assert np.alltrue(indices <= N - 1)
+        assert np.all(indices <= N - 1)
         bitstring = []
         for j in range(dimension):
             bitstring.append(bitstrings_1d[indices[j]])
