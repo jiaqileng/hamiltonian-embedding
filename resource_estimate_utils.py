@@ -12,6 +12,7 @@ from qiskit.circuit.library import PauliEvolutionGate
 from qiskit.quantum_info import Operator
 
 from joblib import Parallel, delayed
+import networkx as nx
 
 def state_prep(dimension, N, amplitudes_list, encoding):
     # amplitudes_list: list of length dimension, where each element is a
@@ -116,14 +117,11 @@ def get_initial_product_state_circuit(amplitudes_list, dimension, N, encoding):
         
     return circuit
 
-def get_trotter_state_vector(N, amplitudes_list, circ_one_trotter_step, r, dimension, bitstrings, encoding, device):
+def get_trotter_state_vector(N, amplitudes_list, trotterized_circuit, dimension, bitstrings, encoding, device):
 
     # Initial state
     circ = get_initial_product_state_circuit(amplitudes_list, dimension, N, encoding)
-
-    # Trotter
-    for _ in range(r):
-        circ.add_circuit(circ_one_trotter_step)
+    circ.add_circuit(trotterized_circuit)
 
     circ.amplitude(state=bitstrings)
 
@@ -137,7 +135,7 @@ def get_trotter_state_vector(N, amplitudes_list, circ_one_trotter_step, r, dimen
     
     return state_vector
 
-def estimate_trotter_error_one_sample(N, H, circ_one_trotter_step, r, dimension, encoding, codewords, device):
+def estimate_trotter_error_one_sample(N, H, trotterized_circuit, dimension, encoding, codewords, device):
     n = num_qubits_per_dim(N, encoding)
     bitstrings = get_bitstrings(N, dimension, encoding)
     assert len(codewords) == N ** dimension
@@ -149,7 +147,7 @@ def estimate_trotter_error_one_sample(N, H, circ_one_trotter_step, r, dimension,
         amplitudes_list.append(initial_state)
 
     # Trotter
-    psi_trotter = get_trotter_state_vector(N, amplitudes_list, circ_one_trotter_step, r, dimension, bitstrings, encoding, device)
+    psi_trotter = get_trotter_state_vector(N, amplitudes_list, trotterized_circuit, dimension, bitstrings, encoding, device)
 
     # No Trotter
     circ = get_initial_product_state_circuit(amplitudes_list, dimension, N, encoding)
@@ -166,12 +164,97 @@ def estimate_trotter_error_one_sample(N, H, circ_one_trotter_step, r, dimension,
     psi_no_trotter = expm_multiply(-1j * H, psi_0)[codewords]
 
     # Estimate Trotter error
-    error = np.linalg.norm(psi_trotter - psi_no_trotter, ord=2)
-    return error
+    return np.linalg.norm(psi_trotter - psi_no_trotter, ord=2)
 
 def estimate_trotter_error(N, H, circ_one_trotter_step, r, dimension, encoding, codewords, device, num_samples, num_jobs):
     
-    res = Parallel(n_jobs=num_jobs)(delayed(estimate_trotter_error_one_sample)(N, H, circ_one_trotter_step, r, dimension, encoding, codewords, device) for _ in range(num_samples))
+    trotterized_circuit = Circuit()
+    for _ in range(r):
+        trotterized_circuit.add_circuit(circ_one_trotter_step)
+
+    res = Parallel(n_jobs=num_jobs)(delayed(estimate_trotter_error_one_sample)(N, H, trotterized_circuit, dimension, encoding, codewords, device) for _ in range(num_samples))
+  
+    return max(res)
+
+
+def estimate_trotter_error_random_one_sample(N, H_terms, trotterized_circuit, dimension, encoding, codewords, device):
+    n = num_qubits_per_dim(N, encoding)
+    bitstrings = get_bitstrings(N, dimension, encoding)
+    assert len(codewords) == N ** dimension
+
+    H = sum(H_terms)
+
+    amplitudes_list = []
+    for _ in range(dimension):
+        initial_state = np.random.randn(N) + 1j * np.random.randn(N)
+        initial_state /= np.linalg.norm(initial_state, ord=2)
+        amplitudes_list.append(initial_state)
+
+    # Trotter
+    psi_trotter = get_trotter_state_vector(N, amplitudes_list, trotterized_circuit, dimension, bitstrings, encoding, device)
+
+    # No Trotter
+    circ = get_initial_product_state_circuit(amplitudes_list, dimension, N, encoding)
+    circ.amplitude(state=bitstrings)
+    task = device.run(circ)
+    amplitudes = task.result().values[0]
+    amplitudes_state_vector = np.zeros(N ** dimension, dtype=np.complex64)
+
+    for i in range(N ** dimension):
+        amplitudes_state_vector[i] = amplitudes[bitstrings[i]]
+
+    psi_0 = np.zeros(2 ** (n * dimension), dtype=np.complex64)
+    psi_0[codewords] = amplitudes_state_vector
+    psi_no_trotter = expm_multiply(-1j * H, psi_0)[codewords]
+
+    # Estimate Trotter error
+    return np.linalg.norm(psi_trotter - psi_no_trotter, ord=2)
+
+
+def estimate_trotter_error_random(N, graph, r, dimension, encoding, codewords, device, num_samples, num_jobs):
+    assert encoding == "one-hot"
+
+    H_terms = get_H_terms_one_hot(N, graph)
+
+    # Use randomized second-order Trotter
+    line_graph = nx.line_graph(graph)
+    coloring = nx.coloring.greedy_color(line_graph, strategy="independent_set")
+
+    coloring_grouped = {}
+    for edge in coloring.keys():
+        if coloring[edge] in coloring_grouped:
+            coloring_grouped[coloring[edge]].append(edge)
+        else:
+            coloring_grouped[coloring[edge]] = [edge]
+
+    num_colors = len(coloring_grouped.keys())
+
+    circuit = Circuit()
+
+    # Use randomized first order Trotter
+    t = 1
+    dt = t / r
+    
+    np.random.seed(int(t * r))
+    for _ in range(r):
+        
+        if np.random.rand() < 0.5:
+            for color in np.arange(0, num_colors):
+                edge_list = coloring_grouped[color]
+                
+                for i,j in edge_list:
+                    circuit.xx(i, j, dt)
+                    circuit.yy(i, j, dt)
+        else:
+            for color in np.arange(0, num_colors)[::-1]:
+                edge_list = coloring_grouped[color]
+                
+                for i,j in edge_list:
+                    circuit.yy(i, j, dt)
+                    circuit.xx(i, j, dt)
+    
+
+    res = Parallel(n_jobs=num_jobs)(delayed(estimate_trotter_error_random_one_sample)(N, H_terms, circuit, dimension, encoding, codewords, device) for _ in range(num_samples))
   
     return max(res)
 
@@ -222,6 +305,22 @@ def std_bin_trotter_error(A, pauli_op, r):
 
     U_one_trotter_layer = Operator(circuit).data
     U_trotter = np.linalg.matrix_power(U_one_trotter_layer, r)
+    U_exact = expm(-1j * A)
+    return np.linalg.norm(U_exact - U_trotter, ord=2)
+
+def std_bin_trotter_error_random(A, pauli_op, r):
+    circuit = QuantumCircuit(np.log2(A.shape[0]))
+
+    single_step = (pauli_op / r).group_commuting()
+    fwd_circuit = LieTrotter(reps=1).synthesize(PauliEvolutionGate(single_step))
+    bkwd_circuit = LieTrotter(reps=1).synthesize(PauliEvolutionGate(single_step[::-1]))
+    for _ in range(r):
+        if np.random.rand() < 0.5:
+            circuit &= fwd_circuit
+        else:
+            circuit &= bkwd_circuit
+
+    U_trotter = Operator(circuit).data
     U_exact = expm(-1j * A)
     return np.linalg.norm(U_exact - U_trotter, ord=2)
 
@@ -329,12 +428,32 @@ def subspace_error(U1, U2, n, encoding):
 #     # plt.show()
 #     return np.abs((U_exact @ np.conj(U_subspace.T)).trace()) / A.shape[0]
 
-def get_H_one_hot(n, lamb, A):
+def get_H_terms_one_hot(n, graph):
+    '''Returns a list of (possibly noncommuting) Hamiltonian terms for one-hot encoding'''
 
-    H_Z = sum_h_z(n, lamb * np.ones(n))
-    H_XX = sum_J_xx(n, A / 2)
+    line_graph = nx.line_graph(graph)
+    coloring = nx.coloring.greedy_color(line_graph, strategy="independent_set")
 
-    return H_Z, H_XX
+    coloring_grouped = {}
+    for edge in coloring.keys():
+        if coloring[edge] in coloring_grouped:
+            coloring_grouped[coloring[edge]].append(edge)
+        else:
+            coloring_grouped[coloring[edge]] = [edge]
+
+    num_colors = len(coloring_grouped.keys())
+
+    H_terms = []
+    for color in np.arange(0, num_colors):
+        edge_list = coloring_grouped[color]
+        
+        A = np.zeros((n, n))
+        for i,j in edge_list:
+            A[i,j] = 1
+        
+        H_terms.append((sum_J_xx(n, A) + sum_J_yy(n, A)) / 2)
+
+    return H_terms
 
 def get_H_pauli_op(lamb, adjacency_matrix):
     n = adjacency_matrix.shape[0]

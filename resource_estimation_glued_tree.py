@@ -3,13 +3,11 @@ from utils import *
 from resource_estimate_utils import *
 from os.path import join
 from time import time
-import multiprocessing
 import networkx as nx
-from joblib import Parallel, delayed
 from random import shuffle
 
 from qiskit.quantum_info import SparsePauliOp
-from qiskit.synthesis import LieTrotter, SuzukiTrotter
+from qiskit.synthesis import LieTrotter
 from qiskit import transpile
 from qiskit.circuit.library import PauliEvolutionGate
 
@@ -48,8 +46,7 @@ def get_glued_tree(h):
 
     return graph
 
-def get_binary_resource_estimate(h, dimension, error_tol, order=1):
-    
+def get_binary_resource_estimate(h, error_tol):
     
     graph = get_glued_tree(h)
     N = graph.order()
@@ -58,14 +55,9 @@ def get_binary_resource_estimate(h, dimension, error_tol, order=1):
     adjacency_matrix = nx.adjacency_matrix(graph, nodelist=sorted(graph.nodes())).toarray()
     adjacency_matrix_padded = np.pad(adjacency_matrix, (0, 2 ** int(np.ceil(np.log2(N))) - N))
 
+    # Compute number of gates per Trotter step
     pauli_op = SparsePauliOp.from_operator(adjacency_matrix_padded)
-
-    if order == 1:
-        circuit = LieTrotter(reps=1).synthesize(PauliEvolutionGate(pauli_op.group_commuting()))
-    elif order == 2:
-        circuit = SuzukiTrotter(order=2, reps=1).synthesize(PauliEvolutionGate(pauli_op.group_commuting()))
-    else:
-        raise ValueError("Order must be 1 or 2")
+    circuit = LieTrotter(reps=1).synthesize(PauliEvolutionGate(pauli_op.group_commuting()))
 
     compiled_circuit = transpile(circuit, basis_gates=['rxx', 'rx', 'ry'], optimization_level=3)
 
@@ -78,15 +70,16 @@ def get_binary_resource_estimate(h, dimension, error_tol, order=1):
 
     print(f"N = {N}, num two qubit gates:", num_two_qubit_gates)
 
-    # # Estimate number of Trotter steps required
+    # Use randomized first-order Trotter
+    # Estimate number of Trotter steps required
     r_min, r_max = 1, 10
-    while std_bin_trotter_error(adjacency_matrix_padded, pauli_op, r_max) > error_tol:
+    while std_bin_trotter_error_random(adjacency_matrix_padded, pauli_op, r_max) > error_tol:
         r_max *= 2
 
     # binary search for r
     while r_max - r_min > 1:
         r = (r_min + r_max) // 2
-        if std_bin_trotter_error(adjacency_matrix_padded, pauli_op, r) > error_tol:
+        if std_bin_trotter_error_random(adjacency_matrix_padded, pauli_op, r) > error_tol:
             r_min = r
         else:
             r_max = r
@@ -122,10 +115,7 @@ if __name__ == "__main__":
     print("Running resource estimation for standard binary encoding")
     for i, h in enumerate(h_vals_binary):
 
-        res = Parallel(n_jobs=num_jobs)(delayed(get_binary_resource_estimate)(h, dimension, error_tol, order=trotter_order) for h in h_vals_binary)
-        binary_two_qubit_gate_count_per_trotter_step, binary_trotter_steps = zip(*res)
-        binary_two_qubit_gate_count_per_trotter_step = np.array(binary_two_qubit_gate_count_per_trotter_step)
-        binary_trotter_steps = np.array(binary_trotter_steps, dtype=int)
+        binary_two_qubit_gate_count_per_trotter_step[i], binary_trotter_steps[i] = get_binary_resource_estimate(h, error_tol)
 
         np.savez(join("resource_data", "resource_estimation_glued_tree_binary.npz"),
                 N_vals_binary=N_vals_binary,
@@ -151,26 +141,22 @@ if __name__ == "__main__":
         adjacency_matrix = nx.adjacency_matrix(graph, nodelist=sorted(graph.nodes())).toarray()
 
         tol = 0.5
-        lamb = n
         codewords = get_codewords_1d(n, encoding, periodic=False)
 
-        one_hot_two_qubit_gate_count_per_trotter_step[i] = graph.size()
-
-        # Check the fidelity
-        A, B = get_H_one_hot(n, lamb, adjacency_matrix)
+        one_hot_two_qubit_gate_count_per_trotter_step[i] = 2 * graph.size()
     
         # Estimate number of Trotter steps required
         r_min, r_max = 1, 10
         if i > 0:
             r_min = one_hot_trotter_steps[i-1]
             r_max = one_hot_trotter_steps[i-1] * 2
-        while estimate_trotter_error(N, A+B, one_hot_get_trotter_step_circ(N, dimension, T, r_max, adjacency_matrix, lamb, order=trotter_order), r_max, dimension, encoding, codewords, device, num_samples, num_jobs) > error_tol:
+        while estimate_trotter_error_random(N, graph, r_max, dimension, encoding, codewords, device, num_samples, num_jobs) > error_tol:
             r_max *= 2
 
         # binary search for r
         while r_max - r_min > 1:
             r = (r_min + r_max) // 2
-            if estimate_trotter_error(N, A+B, one_hot_get_trotter_step_circ(N, dimension, T, r, adjacency_matrix, lamb, order=trotter_order), r, dimension, encoding, codewords, device, num_samples, num_jobs) > error_tol:
+            if estimate_trotter_error_random(N, graph, r, dimension, encoding, codewords, device, num_samples, num_jobs) > error_tol:
                 r_min = r
             else:
                 r_max = r
