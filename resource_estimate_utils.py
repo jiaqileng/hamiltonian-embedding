@@ -1,13 +1,12 @@
 import numpy as np
 
 from scipy.sparse.linalg import expm_multiply, expm, norm
-from scipy.sparse import diags, eye
 from utils import *
 from braket.circuits import Circuit
 
 from qiskit import QuantumCircuit
 from qiskit.quantum_info import SparsePauliOp
-from qiskit.synthesis import LieTrotter
+from qiskit.synthesis import LieTrotter, SuzukiTrotter
 from qiskit.circuit.library import PauliEvolutionGate
 from qiskit.quantum_info import Operator
 
@@ -164,59 +163,23 @@ def estimate_trotter_error_one_sample(N, H, trotterized_circuit, dimension, enco
     psi_no_trotter = expm_multiply(-1j * H, psi_0)[codewords]
 
     # Estimate Trotter error
-    return np.linalg.norm(psi_trotter - psi_no_trotter, ord=2)
+    error = np.linalg.norm(psi_trotter - psi_no_trotter, ord=2)
+    return error
 
-def estimate_trotter_error(N, H, circ_one_trotter_step, r, dimension, encoding, codewords, device, num_samples, num_jobs):
-    
-    trotterized_circuit = Circuit()
-    for _ in range(r):
-        trotterized_circuit.add_circuit(circ_one_trotter_step)
+def estimate_trotter_error(N, H_ebd, circuit, dimension, encoding, codewords, device, num_samples, num_jobs):
 
-    res = Parallel(n_jobs=num_jobs)(delayed(estimate_trotter_error_one_sample)(N, H, trotterized_circuit, dimension, encoding, codewords, device) for _ in range(num_samples))
+    res = Parallel(n_jobs=num_jobs)(delayed(estimate_trotter_error_one_sample)(N, H_ebd, circuit, dimension, encoding, codewords, device) for _ in range(num_samples))
   
     return max(res)
 
-
-def estimate_trotter_error_random_one_sample(N, H_terms, trotterized_circuit, dimension, encoding, codewords, device):
-    n = num_qubits_per_dim(N, encoding)
-    bitstrings = get_bitstrings(N, dimension, encoding)
-    assert len(codewords) == N ** dimension
-
-    H = sum(H_terms)
-
-    amplitudes_list = []
-    for _ in range(dimension):
-        initial_state = np.random.randn(N) + 1j * np.random.randn(N)
-        initial_state /= np.linalg.norm(initial_state, ord=2)
-        amplitudes_list.append(initial_state)
-
-    # Trotter
-    psi_trotter = get_trotter_state_vector(N, amplitudes_list, trotterized_circuit, dimension, bitstrings, encoding, device)
-
-    # No Trotter
-    circ = get_initial_product_state_circuit(amplitudes_list, dimension, N, encoding)
-    circ.amplitude(state=bitstrings)
-    task = device.run(circ)
-    amplitudes = task.result().values[0]
-    amplitudes_state_vector = np.zeros(N ** dimension, dtype=np.complex64)
-
-    for i in range(N ** dimension):
-        amplitudes_state_vector[i] = amplitudes[bitstrings[i]]
-
-    psi_0 = np.zeros(2 ** (n * dimension), dtype=np.complex64)
-    psi_0[codewords] = amplitudes_state_vector
-    psi_no_trotter = expm_multiply(-1j * H, psi_0)[codewords]
-
-    # Estimate Trotter error
-    return np.linalg.norm(psi_trotter - psi_no_trotter, ord=2)
-
-
-def estimate_trotter_error_random(N, graph, r, dimension, encoding, codewords, device, num_samples, num_jobs):
+def estimate_trotter_error_one_hot_1d(N, H, r, dimension, encoding, codewords, device, num_samples, num_jobs, trotter_method):
     assert encoding == "one-hot"
+    assert np.all(np.isreal(H)), "H should be real"
+    assert (N,N) == H.shape
+    assert dimension == 1
+    
+    H_terms, graph = get_H_terms_one_hot(N, H)
 
-    H_terms = get_H_terms_one_hot(N, graph)
-
-    # Use randomized second-order Trotter
     line_graph = nx.line_graph(graph)
     coloring = nx.coloring.greedy_color(line_graph, strategy="independent_set")
 
@@ -229,32 +192,65 @@ def estimate_trotter_error_random(N, graph, r, dimension, encoding, codewords, d
 
     num_colors = len(coloring_grouped.keys())
 
-    circuit = Circuit()
-
-    # Use randomized first order Trotter
     t = 1
     dt = t / r
-    
-    np.random.seed(int(t * r))
-    for _ in range(r):
-        
-        if np.random.rand() < 0.5:
+
+    circuit = Circuit()
+
+    if trotter_method == "first_order":
+        for _ in range(r):
             for color in np.arange(0, num_colors):
                 edge_list = coloring_grouped[color]
-                
                 for i,j in edge_list:
-                    circuit.xx(i, j, dt)
-                    circuit.yy(i, j, dt)
-        else:
+                    circuit.xx(i, j, dt * H[i,j])
+                    circuit.yy(i, j, dt * H[i,j])
+            for i in range(N):
+                circuit.phaseshift(i, - dt * H[i,i])
+
+    elif trotter_method == "second_order":
+        for _ in range(r):
+            for color in np.arange(0, num_colors):
+                edge_list = coloring_grouped[color]
+                for i,j in edge_list:
+                    circuit.xx(i, j, dt * H[i,j] / 2)
+                    circuit.yy(i, j, dt * H[i,j] / 2)
+
+            for i in range(N):
+                circuit.phaseshift(i, - dt * H[i,i])
+
             for color in np.arange(0, num_colors)[::-1]:
                 edge_list = coloring_grouped[color]
-                
                 for i,j in edge_list:
-                    circuit.yy(i, j, dt)
-                    circuit.xx(i, j, dt)
-    
+                    circuit.yy(i, j, dt * H[i,j] / 2)
+                    circuit.xx(i, j, dt * H[i,j] / 2)
 
-    res = Parallel(n_jobs=num_jobs)(delayed(estimate_trotter_error_random_one_sample)(N, H_terms, circuit, dimension, encoding, codewords, device) for _ in range(num_samples))
+    elif trotter_method == "randomized_first_order":
+        np.random.seed(int(t * r))
+        for _ in range(r):
+            
+            if np.random.rand() < 0.5:
+                for color in np.arange(0, num_colors):
+                    edge_list = coloring_grouped[color]
+                    
+                    for i,j in edge_list:
+                        circuit.xx(i, j, dt * H[i,j])
+                        circuit.yy(i, j, dt * H[i,j])
+                for i in range(N):
+                    circuit.phaseshift(i, - dt * H[i,i])
+            else:
+                for i in range(N):
+                    circuit.phaseshift(i, - dt * H[i,i])
+                for color in np.arange(0, num_colors)[::-1]:
+                    edge_list = coloring_grouped[color]
+                    
+                    for i,j in edge_list:
+                        circuit.yy(i, j, dt * H[i,j])
+                        circuit.xx(i, j, dt * H[i,j])
+    else:
+        raise ValueError(f"{trotter_method} not supported")
+    
+    H_ebd = sum(H_terms)
+    res = Parallel(n_jobs=num_jobs)(delayed(estimate_trotter_error_one_sample)(N, H_ebd, circuit, dimension, encoding, codewords, device) for _ in range(num_samples))
   
     return max(res)
 
@@ -299,30 +295,42 @@ def std_bin_trotter_fidelity(A, r):
     U_exact = expm(-1j * A)
     return np.abs((U_exact @ np.conj(U_trotter.T)).trace()) / A.shape[0]
 
-def std_bin_trotter_error(A, pauli_op, r):
+def std_bin_trotter_error(A, pauli_op, r, trotter_method):
 
-    circuit = LieTrotter(reps=1).synthesize(PauliEvolutionGate(pauli_op / r))
+    if trotter_method == "first_order":
+        circuit = LieTrotter(reps=1).synthesize(PauliEvolutionGate(pauli_op / r))
 
-    U_one_trotter_layer = Operator(circuit).data
-    U_trotter = np.linalg.matrix_power(U_one_trotter_layer, r)
-    U_exact = expm(-1j * A)
-    return np.linalg.norm(U_exact - U_trotter, ord=2)
+        U_one_trotter_layer = Operator(circuit).data
+        U_trotter = np.linalg.matrix_power(U_one_trotter_layer, r)
+        U_exact = expm(-1j * A)
+        return np.linalg.norm(U_exact - U_trotter, ord=2)
+    
+    elif trotter_method == "second_order":
+        circuit = SuzukiTrotter(order=2, reps=1).synthesize(PauliEvolutionGate(pauli_op / r))
 
-def std_bin_trotter_error_random(A, pauli_op, r):
-    circuit = QuantumCircuit(np.log2(A.shape[0]))
+        U_one_trotter_layer = Operator(circuit).data
+        U_trotter = np.linalg.matrix_power(U_one_trotter_layer, r)
+        U_exact = expm(-1j * A)
+        return np.linalg.norm(U_exact - U_trotter, ord=2)
+    
+    elif trotter_method == "randomized_first_order":
+        circuit = QuantumCircuit(np.log2(A.shape[0]))
 
-    single_step = (pauli_op / r).group_commuting()
-    fwd_circuit = LieTrotter(reps=1).synthesize(PauliEvolutionGate(single_step))
-    bkwd_circuit = LieTrotter(reps=1).synthesize(PauliEvolutionGate(single_step[::-1]))
-    for _ in range(r):
-        if np.random.rand() < 0.5:
-            circuit &= fwd_circuit
-        else:
-            circuit &= bkwd_circuit
+        single_step = (pauli_op / r).group_commuting()
+        fwd_circuit = LieTrotter(reps=1).synthesize(PauliEvolutionGate(single_step))
+        bkwd_circuit = LieTrotter(reps=1).synthesize(PauliEvolutionGate(single_step[::-1]))
+        for _ in range(r):
+            if np.random.rand() < 0.5:
+                circuit &= fwd_circuit
+            else:
+                circuit &= bkwd_circuit
 
-    U_trotter = Operator(circuit).data
-    U_exact = expm(-1j * A)
-    return np.linalg.norm(U_exact - U_trotter, ord=2)
+        U_trotter = Operator(circuit).data
+        U_exact = expm(-1j * A)
+        return np.linalg.norm(U_exact - U_trotter, ord=2)
+    
+    else:
+        raise ValueError(f"{trotter_method} not supported")
 
 def subspace_fidelity(n, H, adjacency_matrix, encoding):
     U_exact = expm(-1j * adjacency_matrix)
@@ -346,46 +354,6 @@ def subspace_trotter_error(A, B, T, r, n, encoding):
     U_trotter = U_one_trotter_layer ** r
     return subspace_error(U_exact, U_trotter, n, encoding)
 
-# def subspace_trotter_error_estimate(A, B, T, r, n, encoding, num_samples):
-    
-#     # U_exact = expm(-1j * csc_matrix(A+B) * T)
-
-#     # U_one_trotter_layer = expm(-1j * csc_matrix(A) * (T / r)) @ expm(-1j * csc_matrix(B) * (T / r))
-
-#     # U_trotter = U_one_trotter_layer ** r
-
-#     P_diag = np.zeros(2 ** n)
-#     codewords = get_codewords_1d(n, encoding=encoding, periodic=False)
-#     P_diag[codewords] = 1
-#     P = diags(P_diag)
-
-#     max_val = None
-#     for _ in range(num_samples):
-
-#         input_state = P @ (np.random.randn(2 ** n).astype(np.float32) + 1j * np.random.randn(2 ** n).astype(np.float32))
-#         input_state /= np.linalg.norm(input_state)
-#         exact_state = expm_multiply(-1j * csc_matrix(A+B) * T, input_state)
-#         trotter_state = input_state
-#         for _ in range(r):
-#             trotter_state = expm_multiply(-1j * B * (T / r), trotter_state)
-#             trotter_state = expm_multiply(-1j * A * (T / r), trotter_state)
-
-#         error_val = np.linalg.norm(P @ (exact_state - trotter_state))
-#         if max_val == None or error_val > max_val:
-#             max_val = error_val
-            
-#     return error_val
-
-# def full_trotter_error(A, B, T, r, n):
-
-#     U_exact = expm(-1j * csc_matrix(A+B) * T)
-
-#     U_one_trotter_layer = expm(-1j * csc_matrix(A) * (T / r)) @ expm(-1j * csc_matrix(B) * (T / r))
-#     U_trotter = U_one_trotter_layer ** r
-    
-#     return norm(U_exact - U_trotter, ord=2)
-
-
 def subspace_error(U1, U2, n, encoding):
     
     diff = U1 - U2
@@ -397,39 +365,14 @@ def subspace_error(U1, U2, n, encoding):
     
     return norm(diff_subspace, ord=2)
 
-# def subspace_ip_trotter_error(A, B, T, r, n, encoding):
-#     U_exact = expm(-1j * csc_matrix(A+B) * T)
-    
-#     # Interaction picture with Trotter
-#     W = eye(2 ** n)
-#     for k in range(r):
-#         t_k = k * T / r
-#         W = expm(1j * A * t_k) @ expm(-1j * B * (T / r)) @ expm(-1j * A * t_k) @ W
-
-#     U_trotter = expm(-1j * A * T) @ W
-
-#     return subspace_error(U_exact, U_trotter, n, encoding)
-
-# def one_hot_trotter_subspace_fidelity(A, circuit, r):
-    
-#     U_exact = expm(-1j * A)
-#     circuit.draw()
-#     circuit.remove_final_measurements(inplace=True)
-#     U_one_trotter_layer = Operator(circuit).data
-#     U_trotter = np.linalg.matrix_power(U_one_trotter_layer, r)
-#     U_subspace = np.zeros_like(U_exact)
-#     codewords = get_codewords_1d(n, encoding="one-hot", periodic=False)
-#     for j in range(n):
-#         for k in range(n):
-#             U_subspace[j,k] = U_trotter[codewords[j],codewords[k]]
-
-#     # plt.matshow(U_subspace.real)
-#     # plt.matshow(U_exact.real)
-#     # plt.show()
-#     return np.abs((U_exact @ np.conj(U_subspace.T)).trace()) / A.shape[0]
-
-def get_H_terms_one_hot(n, graph):
+def get_H_terms_one_hot(n, H):
     '''Returns a list of (possibly noncommuting) Hamiltonian terms for one-hot encoding'''
+
+    graph = nx.Graph()
+    for i in range(n):
+        for j in range(i):
+            if H[i,j] != 0:
+                graph.add_edge(i,j)
 
     line_graph = nx.line_graph(graph)
     coloring = nx.coloring.greedy_color(line_graph, strategy="independent_set")
@@ -449,11 +392,13 @@ def get_H_terms_one_hot(n, graph):
         
         A = np.zeros((n, n))
         for i,j in edge_list:
-            A[i,j] = 1
+            A[i,j] = H[i,j]
         
         H_terms.append((sum_J_xx(n, A) + sum_J_yy(n, A)) / 2)
+    
+    H_terms.append(sum_delta_n(n, np.diag(H)))
 
-    return H_terms
+    return H_terms, graph
 
 def get_H_pauli_op(lamb, adjacency_matrix):
     n = adjacency_matrix.shape[0]
