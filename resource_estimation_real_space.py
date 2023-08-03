@@ -215,7 +215,7 @@ if __name__ == "__main__":
     device = LocalSimulator()
     num_samples = 100
 
-    for i, N in enumerate(N_vals_one_hot):
+    for i, N in enumerate(N_vals_unary):
         start_time = time()
 
         print(f"N = {N} for {encoding}", flush=True)
