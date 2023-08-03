@@ -53,6 +53,51 @@ def get_unary_real_space_H_ebd(N, a, b):
     H_ebd = 0.5 * p_sq + 0.5 * a * x_sq + b * x
     return H_ebd
 
+def get_H_pauli_op(N, a, b, encoding):
+
+    n = num_qubits_per_dim(N, encoding=encoding)
+
+    H = []
+    if encoding == "unary":
+        J = np.zeros((n,n))
+        for i in range(n-1):
+            op = n * ['I']
+            op[i] = 'X'
+            op[i+1] = 'X'
+            H.append(SparsePauliOp(''.join(op), 0.25 * (a - 1) * np.sqrt((i+1) * (i+2))))
+
+            J[i, i+1] = np.sqrt((i + 1) * (i + 2))
+        
+        for i in range(n):
+            op = n * ['I']
+            op[i] = 'Z'
+            H.append(SparsePauliOp(''.join(op), -0.25 * (1 + a)))
+
+        for j in range(n):
+            op = n * ['I']
+            op[j] = 'X'
+            H.append(SparsePauliOp(''.join(op), b * np.sqrt((j+1) / 2)))
+
+    elif encoding == "one-hot":
+        for j in range(n-1):
+            op = n * ['I']
+            op[j] = 'X'
+            op[j+1] = 'X'
+            H.append(SparsePauliOp(''.join(op), b * np.sqrt((j+1) / 2)))
+
+        for j in range(n-2):
+            op = n * ['I']
+            op[j] = 'X'
+            op[j+2] = 'X'
+            H.append(SparsePauliOp(''.join(op), 0.25 * (a - 1) * np.sqrt((j+1) * (j+2))))
+        
+        for j in range(n):
+            op = n * ['I']
+            op[j] = 'Z'
+            H.append(SparsePauliOp(''.join(op), -2 * (j+1/2)))
+
+    return sum(H).simplify()
+
 def get_unary_real_space_circuit(N, r, a, b, trotter_method):
     assert r > 0
 
@@ -119,8 +164,11 @@ def get_binary_resource_estimate(N, error_tol, a, b, trotter_method):
     
     print(f"N = {N}", flush=True)
 
-    H = get_real_space_H(N, a, b)
-    H_padded = np.pad(H, (0, 2 ** int(np.ceil(np.log2(N))) - N))
+    H_padded = get_real_space_H(2 ** int(np.ceil(np.log2(N))), a, b)
+    for i in np.arange(N, 2 ** int(np.ceil(np.log2(N)))):
+        for j in range(N):
+            H_padded[i,j] = 0
+            H_padded[j,i] = 0
 
     pauli_op = SparsePauliOp.from_operator(H_padded)
 
@@ -178,8 +226,8 @@ if __name__ == "__main__":
     dimension = 1
     error_tol = 1e-2
     # trotter_method = "first_order"
-    # trotter_method = "second_order"
-    trotter_method = "randomized_first_order"
+    trotter_method = "second_order"
+    # trotter_method = "randomized_first_order"
 
     a, b = 1, -1/2
     T = 1
@@ -194,9 +242,15 @@ if __name__ == "__main__":
     unary_trotter_steps = np.zeros(len(N_vals_unary), dtype=int)
     unary_two_qubit_gate_count_per_trotter_step = np.zeros(len(N_vals_unary))
 
+    N_vals_unary_bound = np.arange(3, 64)
+    unary_trotter_steps_bound = np.zeros(len(N_vals_unary_bound), dtype=int)
+
     N_vals_one_hot = np.arange(3, 17)
     one_hot_trotter_steps = np.zeros(len(N_vals_one_hot), dtype=int)
     one_hot_two_qubit_gate_count_per_trotter_step = np.zeros(len(N_vals_one_hot))
+
+    N_vals_one_hot_bound = np.arange(3, 64)
+    one_hot_trotter_steps_bound = np.zeros(len(N_vals_one_hot_bound), dtype=int)
 
     print("Running resource estimation for standard binary encoding")
     for i, N in enumerate(N_vals_binary):
@@ -254,6 +308,25 @@ if __name__ == "__main__":
                  unary_two_qubit_gate_count_per_trotter_step=unary_two_qubit_gate_count_per_trotter_step[:i+1])
 
         print(f"Finished N = {N}, time = {time() - start_time} seconds.", flush=True)
+
+    # Unary encoding
+    print("Running resource estimation for unary encoding with analytical bound", flush=True)
+    encoding = "unary"
+
+    for i, N in enumerate(N_vals_unary_bound):
+        start_time = time()
+
+        print(f"Running N = {N}", flush=True)
+
+        # Use bound to get Trotter number
+        unary_trotter_steps_bound[i] = get_trotter_number(get_H_pauli_op(N, a, b, encoding), T, error_tol, trotter_method)
+
+        # Save data
+        np.savez(join(CURR_DIR, f"unary_{trotter_method}_bound.npz"),
+                 N_vals_unary_bound=N_vals_unary_bound[:i+1],
+                 unary_trotter_steps_bound=unary_trotter_steps_bound[:i+1])
+
+        print(f"Finished N = {N}, time = {time() - start_time} seconds.", flush=True)
     
     # One hot encoding
     encoding = "one-hot"
@@ -308,5 +381,22 @@ if __name__ == "__main__":
                  N_vals_one_hot=N_vals_one_hot[:i+1],
                  one_hot_trotter_steps=one_hot_trotter_steps[:i+1],
                  one_hot_two_qubit_gate_count_per_trotter_step=one_hot_two_qubit_gate_count_per_trotter_step[:i+1])
+
+        print(f"Finished N = {N}, time = {time() - start_time} seconds.", flush=True)
+
+    print("Running resource estimation for one-hot encoding with analytical bound", flush=True)
+    encoding = "one-hot"
+    for i, N in enumerate(N_vals_one_hot_bound):
+        start_time = time()
+
+        print(f"Running N = {N}", flush=True)
+
+        # Use bound to get Trotter number
+        one_hot_trotter_steps_bound[i] = get_trotter_number(get_H_pauli_op(N, a, b, encoding), T, error_tol, trotter_method)
+
+        # Save data
+        np.savez(join(CURR_DIR, f"one_hot_{trotter_method}_bound.npz"),
+                 N_vals_one_hot_bound=N_vals_one_hot_bound[:i+1],
+                 one_hot_trotter_steps_bound=one_hot_trotter_steps_bound[:i+1])
 
         print(f"Finished N = {N}, time = {time() - start_time} seconds.", flush=True)

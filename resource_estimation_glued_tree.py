@@ -46,6 +46,23 @@ def get_glued_tree(h):
 
     return graph
 
+def get_H_pauli_op(n, graph):
+
+    H = []
+
+    for i,j in graph.edges():
+        op = n * ['I']
+        op[i] = 'X'
+        op[j] = 'X'
+        H.append(SparsePauliOp(''.join(op), 1/2))
+
+        op = n * ['I']
+        op[i] = 'Y'
+        op[j] = 'Y'
+        H.append(SparsePauliOp(''.join(op), 1/2))
+
+    return sum(H).simplify()
+
 def get_binary_resource_estimate(h, error_tol, trotter_method):
     
     graph = get_glued_tree(h)
@@ -111,14 +128,14 @@ if __name__ == "__main__":
     dimension = 1
     error_tol = 1e-2
     # trotter_method = "first_order"
-    # trotter_method = "second_order"
-    trotter_method = "randomized_first_order"
+    trotter_method = "second_order"
+    # trotter_method = "randomized_first_order"
 
     T = 1
     print(f"Error tolerance: {error_tol : 0.2f}.")
     print(f"Method: {trotter_method}")
 
-    h_vals_binary = np.arange(1,6)
+    h_vals_binary = np.arange(1, 6)
     N_vals_binary = 2 * (2 ** (h_vals_binary + 1) - 1)
     binary_trotter_steps = np.zeros(len(N_vals_binary))
     binary_two_qubit_gate_count_per_trotter_step = np.zeros(len(N_vals_binary))
@@ -127,6 +144,10 @@ if __name__ == "__main__":
     N_vals_one_hot = 2 * (2 ** (h_vals_one_hot + 1) - 1)
     one_hot_trotter_steps = np.zeros(len(N_vals_one_hot), dtype=int)
     one_hot_two_qubit_gate_count_per_trotter_step = np.zeros(len(N_vals_one_hot))
+
+    h_vals_one_hot_bound = np.arange(1, 6)
+    N_vals_one_hot_bound = 2 * (2 ** (h_vals_one_hot_bound + 1) - 1)
+    one_hot_trotter_steps_bound = np.zeros(len(N_vals_one_hot_bound), dtype=int)
 
 
     print("Running resource estimation for standard binary encoding")
@@ -157,8 +178,6 @@ if __name__ == "__main__":
         print(f"Running h = {h}, N = {N} for {encoding}", flush=True)
         adjacency_matrix = nx.adjacency_matrix(graph, nodelist=sorted(graph.nodes())).toarray()
 
-        tol = 0.5
-
         if trotter_method == "first_order" or trotter_method == "randomized_first_order":
             one_hot_two_qubit_gate_count_per_trotter_step[i] = 2 * graph.size()
         elif trotter_method == "second_order":
@@ -185,10 +204,35 @@ if __name__ == "__main__":
 
         one_hot_trotter_steps[i] = r_max
 
+        # Use bound to get Trotter number
+        one_hot_trotter_steps_bound[i] = get_trotter_number(get_H_pauli_op(n, graph), T, error_tol, trotter_method)
+
         # Save data
         np.savez(join(CURR_DIR, f"one_hot_{trotter_method}.npz"),
                  N_vals_one_hot=N_vals_one_hot[:i+1],
                  one_hot_trotter_steps=one_hot_trotter_steps[:i+1],
                  one_hot_two_qubit_gate_count_per_trotter_step=one_hot_two_qubit_gate_count_per_trotter_step[:i+1])
+
+        print(f"Finished N = {N}, time = {time() - start_time} seconds.", flush=True)
+
+    # One hot encoding
+    print("Running resource estimation for one-hot encoding with analytical bound", flush=True)
+    encoding = "one-hot"
+
+    for i, h in enumerate(h_vals_one_hot_bound):
+        start_time = time()
+
+        graph = get_glued_tree(h)
+        N = graph.order()
+        n = num_qubits_per_dim(N, encoding)
+        codewords = get_codewords_1d(n, encoding, periodic=False)
+
+        # Use bound to get Trotter number
+        one_hot_trotter_steps_bound[i] = get_trotter_number(get_H_pauli_op(n, graph), T, error_tol, trotter_method)
+
+        # Save data
+        np.savez(join(CURR_DIR, f"one_hot_{trotter_method}_bound.npz"),
+                 N_vals_one_hot_bound=N_vals_one_hot_bound[:i+1],
+                 one_hot_trotter_steps_bound=one_hot_trotter_steps_bound[:i+1])
 
         print(f"Finished N = {N}, time = {time() - start_time} seconds.", flush=True)

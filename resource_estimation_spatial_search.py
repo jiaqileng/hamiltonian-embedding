@@ -24,12 +24,36 @@ def get_binary_resource_estimate(N, dimension, error_tol, trotter_method):
 
     marked_vertex = np.kron(marked_vertex_1, marked_vertex_2)
     H_oracle = - csc_matrix(np.outer(marked_vertex, marked_vertex))
-    
+
     # Sign is flipped here; this function minimizes the difference between the two largest eigenvalues of gamma * L + H_oracle
     gamma = scipy_get_optimal_gamma(L, -H_oracle, 0.3)
-
     H_spatial_search = (-gamma * L + H_oracle).toarray()
-    H_spatial_search_padded = np.pad(H_spatial_search, (0, 2 ** int(np.ceil(np.log2(N ** 2))) - N ** 2))
+
+    N_padded = 2 ** int(np.ceil(np.log2(N)))
+
+    L = get_laplacian_lattice(N_padded, d=dimension)
+    binary_indices = []
+    other_indices = []
+    for i in range(N_padded ** dimension):
+        col = i % N_padded
+        row = i // N_padded
+        if col < N and row < N:
+            binary_indices.append(i)
+        else:
+            other_indices.append(i)
+            
+
+    H_spatial_search_padded = (-gamma * L).toarray()
+    # Make sure the diagonal part is the same
+    for i in range(len(binary_indices)):
+        H_spatial_search_padded[binary_indices[i], binary_indices[i]] = H_spatial_search[i,i]
+        
+    # Remove all other edges
+    for i in binary_indices:
+        for j in other_indices:
+            H_spatial_search_padded[i,j] = 0
+            H_spatial_search_padded[j,i] = 0
+
     pauli_op = SparsePauliOp.from_operator(H_spatial_search_padded)
     
     # Compute number of gates per Trotter step
@@ -135,6 +159,115 @@ def get_H_spatial_search(n, lamb, gamma, encoding):
         H_laplacian = gamma * (sum_h_z(dimension * n, h) - (sum_J_xx(dimension * n, J) + sum_J_yy(dimension * n, J)) / 2)
 
         return H_laplacian + H_oracle
+    else:
+        raise ValueError("Encoding not supported")
+    
+def get_H_pauli_op(n, lamb, gamma, encoding):
+    H = []
+
+    dimension = 2
+    if encoding == "unary" or encoding == "antiferromagnetic":
+        if encoding == "antiferromagnetic":
+            assert n % 2 == 1, "only works for odd number of qubits"
+
+        for i in range(dimension):
+            op = dimension * n * ['I']
+            op[i * n] = 'Z'
+            H.append(SparsePauliOp(''.join(op), lamb))
+            if encoding == "unary":
+                op = dimension * n * ['I']
+                op[(i + 1) * n - 1] = 'Z'
+                H.append(SparsePauliOp(''.join(op), -lamb))
+            else:
+                op = dimension * n * ['I']
+                op[(i + 1) * n - 1] = 'Z'
+                H.append(SparsePauliOp(''.join(op), ((-1) ** n) * lamb))
+            
+            for j in np.arange(i * n, (i + 1) * n - 1):
+                if encoding == "unary":
+                    op = dimension * n * ['I']
+                    op[j] = 'Z'
+                    op[j + 1] = 'Z'
+                    H.append(SparsePauliOp(''.join(op), - lamb))
+                else:                    
+                    op = dimension * n * ['I']
+                    op[j] = 'Z'
+                    op[j + 1] = 'Z'
+                    H.append(SparsePauliOp(''.join(op), lamb))
+
+        # Create the oracle Hamiltonian
+        op = dimension * n * ['I']
+        op[n-1] = 'Z'
+        op[n] = 'Z'
+        H.append(SparsePauliOp(''.join(op), 1/4))
+
+        op = dimension * n * ['I']
+        op[n-1] = 'Z'
+        H.append(SparsePauliOp(''.join(op), 1/4))
+        op = dimension * n * ['I']
+        op[n] = 'Z'
+        H.append(SparsePauliOp(''.join(op), -1/4))
+
+        # Correction term for Laplacian
+        for i in range(2):
+            op = dimension * n * ['I']
+            op[i * n] = 'Z'
+            H.append(SparsePauliOp(''.join(op), - gamma / 2))
+            if encoding == "unary":
+                op = dimension * n * ['I']
+                op[(i + 1) * n - 1] = 'Z'
+                H.append(SparsePauliOp(''.join(op), gamma / 2))
+            else:
+                op = dimension * n * ['I']
+                op[(i + 1) * n - 1] = 'Z'
+                H.append(SparsePauliOp(''.join(op), gamma * ((-1) ** (n+1)) / 2))
+        
+        for i in range(dimension * n):
+            op = dimension * n * ['I']
+            op[i] = 'X'
+            H.append(SparsePauliOp(''.join(op), - gamma))
+
+        return sum(H).simplify()
+    elif encoding == "one-hot":
+
+        # Create the oracle Hamiltonian
+        op = dimension * n * ['I']
+        op[n-1] = 'Z'
+        op[n] = 'Z'
+        H.append(SparsePauliOp(''.join(op), - 1/4))
+
+        h = np.zeros(dimension * n)
+        op = dimension * n * ['I']
+        op[n-1] = 'Z'
+        H.append(SparsePauliOp(''.join(op), 1/4))
+        op = dimension * n * ['I']
+        op[n] = 'Z'
+        H.append(SparsePauliOp(''.join(op), 1/4))
+
+        # Laplacian correction term
+        for i in range(2):
+            op = dimension * n * ['I']
+            op[i * n] = 'Z'
+            H.append(SparsePauliOp(''.join(op), gamma / 2))
+
+            op = dimension * n * ['I']
+            op[(i+1) * n - 1] = 'Z'
+            H.append(SparsePauliOp(''.join(op), gamma / 2))
+
+        # Adjacency matrix
+        for i in range(dimension):
+            for j in np.arange(i * n, (i + 1) * n - 1):
+                op = dimension * n * ['I']
+                op[j] = 'X'
+                op[j+1] = "X"
+                H.append(SparsePauliOp(''.join(op), - gamma / 2))
+
+                op = dimension * n * ['I']
+                op[j] = 'Y'
+                op[j+1] = "Y"
+                H.append(SparsePauliOp(''.join(op), - gamma / 2))
+
+        return sum(H).simplify()
     else:
         raise ValueError("Encoding not supported")
 
@@ -367,16 +500,20 @@ if __name__ == "__main__":
 
     dimension = 2
     error_tol = 1e-2
+    T = 1
     # trotter_method = "first_order"
-    # trotter_method = "second_order"
-    trotter_method = "randomized_first_order"
+    trotter_method = "second_order"
+    # trotter_method = "randomized_first_order"
 
     print(f"Error tolerance: {error_tol : 0.2f}.")
     print(f"Method: {trotter_method}")
 
-    N_vals_binary = np.arange(3, 21)
+    N_vals_binary = np.arange(3, 16)
     binary_trotter_steps = np.zeros(len(N_vals_binary))
     binary_two_qubit_gate_count_per_trotter_step = np.zeros(len(N_vals_binary))
+    
+    N_vals_unary_bound = np.arange(3, 16)
+    unary_trotter_steps_bound = np.zeros(len(N_vals_unary_bound), dtype=int)
 
     N_vals_unary = np.arange(3, 11)
     unary_trotter_steps = np.zeros(len(N_vals_unary), dtype=int)
@@ -385,6 +522,9 @@ if __name__ == "__main__":
     N_vals_one_hot = np.arange(3, 11)
     one_hot_trotter_steps = np.zeros(len(N_vals_one_hot), dtype=int)
     one_hot_two_qubit_gate_count_per_trotter_step = np.zeros(len(N_vals_one_hot))
+
+    N_vals_one_hot_bound = np.arange(3, 16)
+    one_hot_trotter_steps_bound = np.zeros(len(N_vals_one_hot_bound), dtype=int)
 
 
     print("Running resource estimation for standard binary encoding", flush=True)
@@ -456,6 +596,40 @@ if __name__ == "__main__":
         
         print(f"Finished N = {N}, time = {time() - start_time} seconds.", flush=True)
     
+    # Unary encoding
+    print("Running resource estimation for unary encoding with analytical bound", flush=True)
+    encoding = "unary"
+
+    for i, N in enumerate(N_vals_unary_bound):
+        start_time = time()
+
+        print(f"Running N = {N}", flush=True)
+        n = num_qubits_per_dim(N, encoding)
+
+        # Compute the optimal gamma
+        L = get_laplacian_lattice(N, d=dimension)
+        marked_vertex_1 = np.zeros(N)
+        marked_vertex_1[N-1] = 1
+        marked_vertex_2 = np.zeros(N)
+        marked_vertex_2[0] = 1
+
+        marked_vertex = np.kron(marked_vertex_1, marked_vertex_2)
+        H_oracle = - csc_matrix(np.outer(marked_vertex, marked_vertex))
+        # Sign is flipped here; this function minimizes the difference between the two largest eigenvalues of gamma * L + H_oracle
+        gamma = scipy_get_optimal_gamma(L, -H_oracle, 0.3)
+
+        lamb = dimension * n
+
+        # Use bound to get Trotter number
+        unary_trotter_steps_bound[i] = get_trotter_number(get_H_pauli_op(n, lamb, gamma, encoding), T, error_tol, trotter_method)
+
+        # Save data
+        np.savez(join(CURR_DIR, f"unary_{trotter_method}_bound.npz"),
+                 N_vals_unary_bound=N_vals_unary_bound[:i+1],
+                 unary_trotter_steps_bound=unary_trotter_steps_bound[:i+1])
+
+        print(f"Finished N = {N}, time = {time() - start_time} seconds.", flush=True)
+
     # One-hot encoding
     encoding = "one-hot"
     print(f"Running resource estimation for {encoding} encoding", flush=True)
@@ -512,4 +686,38 @@ if __name__ == "__main__":
                  one_hot_two_qubit_gate_count_per_trotter_step=one_hot_two_qubit_gate_count_per_trotter_step[:i+1])
         
         
+        print(f"Finished N = {N}, time = {time() - start_time} seconds.", flush=True)
+
+    # One hot encoding
+    print("Running resource estimation for one-hot encoding with analytical bound", flush=True)
+    encoding = "one-hot"
+
+    for i, N in enumerate(N_vals_one_hot_bound):
+        start_time = time()
+
+        print(f"Running N = {N}", flush=True)
+        n = num_qubits_per_dim(N, encoding)
+
+        # Compute the optimal gamma
+        L = get_laplacian_lattice(N, d=dimension)
+        marked_vertex_1 = np.zeros(N)
+        marked_vertex_1[N-1] = 1
+        marked_vertex_2 = np.zeros(N)
+        marked_vertex_2[0] = 1
+
+        marked_vertex = np.kron(marked_vertex_1, marked_vertex_2)
+        H_oracle = - csc_matrix(np.outer(marked_vertex, marked_vertex))
+        # Sign is flipped here; this function minimizes the difference between the two largest eigenvalues of gamma * L + H_oracle
+        gamma = scipy_get_optimal_gamma(L, -H_oracle, 0.3)
+
+        lamb = dimension * n
+
+        # Use bound to get Trotter number
+        one_hot_trotter_steps_bound[i] = get_trotter_number(get_H_pauli_op(n, lamb, gamma, encoding), T, error_tol, trotter_method)
+
+        # Save data
+        np.savez(join(CURR_DIR, f"one_hot_{trotter_method}_bound.npz"),
+                 N_vals_one_hot_bound=N_vals_one_hot_bound[:i+1],
+                 one_hot_trotter_steps_bound=one_hot_trotter_steps_bound[:i+1])
+
         print(f"Finished N = {N}, time = {time() - start_time} seconds.", flush=True)
