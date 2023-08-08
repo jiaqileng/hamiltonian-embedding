@@ -17,7 +17,7 @@ def tensor(op_list : list):
 def uniform_superposition(n : int):
     return np.ones(2 ** n, dtype=np.complex64) / np.sqrt(2 ** n)
 
-def sum_x(n : int) -> np.ndarray:
+def sum_x(n : int):
     '''
     Returns `\sum_i \sigma_x^{(i)}` where `\sigma_x^{(i)}` 
     is the Pauli-x operator on the ith qubit.
@@ -31,7 +31,7 @@ def sum_x(n : int) -> np.ndarray:
         
     return res
 
-def sum_y(n : int) -> np.ndarray:
+def sum_y(n : int):
     '''
     Returns `\sum_i \sigma_x^{(i)}` where `\sigma_x^{(i)}` 
     is the Pauli-x operator on the ith qubit.
@@ -46,7 +46,7 @@ def sum_y(n : int) -> np.ndarray:
         
     return res
 
-def sum_h_x(n : int, h : np.ndarray) -> np.ndarray:
+def sum_h_x(n : int, h : np.ndarray):
     '''
     Returns `\sum_i h_i \sigma_x^{(i)}` where `\sigma_x^{(i)}` 
     is the Pauli-y operator on the ith qubit.
@@ -63,7 +63,7 @@ def sum_h_x(n : int, h : np.ndarray) -> np.ndarray:
         
     return res
 
-def sum_h_y(n : int, h : np.ndarray) -> np.ndarray:
+def sum_h_y(n : int, h : np.ndarray):
     '''
     Returns `\sum_i h_i \sigma_y^{(i)}` where `\sigma_y^{(i)}` 
     is the Pauli-y operator on the ith qubit.
@@ -80,7 +80,7 @@ def sum_h_y(n : int, h : np.ndarray) -> np.ndarray:
         
     return res
 
-def sum_delta_n(n : int, delta : np.ndarray) -> np.ndarray:
+def sum_delta_n(n : int, delta : np.ndarray):
     '''
     Returns `\sum_i \Delta_i \hat{n}^{(i)}` where `\hat{n}^{(i)}` 
     is the number operator on the ith qubit.
@@ -98,7 +98,7 @@ def sum_delta_n(n : int, delta : np.ndarray) -> np.ndarray:
         
     return res
 
-def sum_h_z(n : int, h : np.ndarray) -> np.ndarray:
+def sum_h_z(n : int, h : np.ndarray):
     '''
     Returns `\sum_i h_i \sigma_z^{(i)}` where `\sigma_z^{(i)}` 
     is the Pauli-z operator on the ith qubit.
@@ -114,7 +114,7 @@ def sum_h_z(n : int, h : np.ndarray) -> np.ndarray:
         
     return res
 
-def sum_V_nn(n : int, V : np.ndarray) -> np.ndarray:
+def sum_V_nn(n : int, V : np.ndarray):
     '''
     Returns `\sum_{i>j} V_{i,j} \sigma_z^{(i)} \sigma_z^{(j)}` where `\sigma_z^{(i)}` 
     is the Pauli-z operator on the ith qubit.
@@ -131,7 +131,7 @@ def sum_V_nn(n : int, V : np.ndarray) -> np.ndarray:
             
     return res
 
-def sum_J_zz(n : int, J : np.ndarray) -> np.ndarray:
+def sum_J_zz(n : int, J : np.ndarray):
     '''
     Returns `\sum_{i,j} J_{i,j} \sigma_z^{(i)} \sigma_z^{(j)}` where `\sigma_z^{(i)}` 
     is the Pauli-z operator on the ith qubit.
@@ -148,7 +148,7 @@ def sum_J_zz(n : int, J : np.ndarray) -> np.ndarray:
             
     return res
 
-def sum_J_xx(n : int, J : np.ndarray) -> np.ndarray:
+def sum_J_xx(n : int, J : np.ndarray):
     '''
     Returns `\sum_{i,j} J_{i,j} \sigma_x^{(i)} \sigma_x^{(j)}` where `\sigma_x^{(i)}` 
     is the Pauli-x operator on the ith qubit.
@@ -165,7 +165,7 @@ def sum_J_xx(n : int, J : np.ndarray) -> np.ndarray:
             
     return res
 
-def sum_J_yy(n : int, J : np.ndarray) -> np.ndarray:
+def sum_J_yy(n : int, J : np.ndarray):
     '''
     Returns `\sum_{i,j} J_{i,j} \sigma_y^{(i)} \sigma_y^{(j)}` where `\sigma_y^{(i)}` 
     is the Pauli-y operator on the ith qubit.
@@ -179,6 +179,24 @@ def sum_J_yy(n : int, J : np.ndarray) -> np.ndarray:
     for i in range(n):
         for j in range(i):
             res += (J[i,j] + J[j,i]) * tensor([identity(dims[n-i-1], format='csr'), PAULI_Y, identity(dims[i-j-1], format='csr'), PAULI_Y, identity(dims[j], format='csr')])
+            
+    return res
+
+def sum_J_zzz(n : int, J : np.ndarray):
+    '''
+    Returns `\sum_{i,j} J_{i,j} \sigma_z^{(i)} \sigma_z^{(j)}` where `\sigma_z^{(i)}` 
+    is the Pauli-z operator on the ith qubit.
+    '''
+    assert n > 0
+    assert J.shape == (n,n,n)
+
+    dims = [2 ** i for i in range(n)]
+
+    res = csc_matrix((2 ** n, 2 ** n))
+    for i in range(n):
+        for j in range(i):
+            for k in range(j):
+                res += (J[i,j,k] + J[i,k,j] + J[j,i,k] + J[j,k,i] + J[k,i,j] + J[k,j,i]) * tensor([identity(dims[n-i-1], format='csr'), PAULI_Z, identity(dims[i-j-1], format='csr'), PAULI_Z, identity(dims[j-k-1], format='csr'), PAULI_Z, identity(dims[k], format='csr')])
             
     return res
 
@@ -385,21 +403,34 @@ def get_codewords_1d(n : int, encoding, periodic):
         for i in range(n):
             codewords.append(bitstring)
 
-
             if i < n - 1:
                 bitstring ^= (1 << i)
                 bitstring ^= (1 << (i+1))
     return codewords
 
-def get_codewords_2d(n : int, encoding, periodic):
-    
+def get_codewords(N : int, dimension: int, encoding, periodic=False):
+    n = num_qubits_per_dim(N, encoding)
     codewords_1d = get_codewords_1d(n, encoding, periodic)
-    N = len(codewords_1d)
     codewords = []
 
-    for i in range(N):
-        for j in range(N):
-            codewords.append((codewords_1d[j] << n) + codewords_1d[i])
+    indices = np.zeros(dimension, dtype=int)
+    for i in range(N ** dimension):
+        assert np.all(indices <= N - 1)
+
+        codeword = 0
+        for j in range(dimension):
+            print(codewords_1d[j])
+            codeword += (2 ** (j * n)) * codewords_1d[indices[j]]
+        codewords.append(codeword)
+        
+        if i < N ** dimension - 1:
+            # Increment indices
+            indices[-1] += 1
+            for j in np.arange(dimension):
+                if (indices[dimension - 1 - j] >= N):
+                    indices[dimension - 1 - j - 1] += 1
+                    indices[dimension - 1 - j] %= N
+
     return codewords
 
 def num_qubits_per_dim(N, encoding):
