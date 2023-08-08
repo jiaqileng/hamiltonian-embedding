@@ -419,7 +419,6 @@ def get_codewords(N : int, dimension: int, encoding, periodic=False):
 
         codeword = 0
         for j in range(dimension):
-            print(codewords_1d[j])
             codeword += (2 ** (j * n)) * codewords_1d[indices[j]]
         codewords.append(codeword)
         
