@@ -225,8 +225,8 @@ if __name__ == "__main__":
 
     dimension = 1
     error_tol = 1e-2
-    # trotter_method = "first_order"
-    trotter_method = "second_order"
+    trotter_method = "first_order"
+    # trotter_method = "second_order"
     # trotter_method = "randomized_first_order"
 
     a, b = 1, -1/2
@@ -234,22 +234,22 @@ if __name__ == "__main__":
     print(f"Error tolerance: {error_tol : 0.2f}.")
     print(f"Method: {trotter_method}")
 
-    N_vals_binary = np.arange(3, 64)
+    N_vals_binary = np.arange(3, 101)
     binary_trotter_steps = np.zeros(len(N_vals_binary))
     binary_two_qubit_gate_count_per_trotter_step = np.zeros(len(N_vals_binary))
 
-    N_vals_unary = np.arange(3, 17)
+    N_vals_unary = np.arange(3, 16)
     unary_trotter_steps = np.zeros(len(N_vals_unary), dtype=int)
     unary_two_qubit_gate_count_per_trotter_step = np.zeros(len(N_vals_unary))
 
-    N_vals_unary_bound = np.arange(3, 64)
+    N_vals_unary_bound = np.arange(3, 101)
     unary_trotter_steps_bound = np.zeros(len(N_vals_unary_bound), dtype=int)
 
-    N_vals_one_hot = np.arange(3, 17)
+    N_vals_one_hot = np.arange(3, 16)
     one_hot_trotter_steps = np.zeros(len(N_vals_one_hot), dtype=int)
     one_hot_two_qubit_gate_count_per_trotter_step = np.zeros(len(N_vals_one_hot))
 
-    N_vals_one_hot_bound = np.arange(3, 64)
+    N_vals_one_hot_bound = np.arange(3, 101)
     one_hot_trotter_steps_bound = np.zeros(len(N_vals_one_hot_bound), dtype=int)
 
     print("Running resource estimation for standard binary encoding")
