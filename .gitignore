@@ -160,3 +160,6 @@ cython_debug/
 #.idea/
 
 experiment_data/
+
+# MacOS
+.DS_Store

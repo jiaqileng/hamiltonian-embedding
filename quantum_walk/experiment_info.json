@@ -1,0 +1,1 @@
+{"N": 14, "dimension": 1, "encoding": "one-hot", "T": 2, "num_time_points": 11, "r": 4, "num_shots": 200, "vertex": 0, "use_error_mitigation": false}
