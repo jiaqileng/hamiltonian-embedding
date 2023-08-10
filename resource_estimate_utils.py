@@ -274,35 +274,49 @@ def get_gate_counts(ops):
 def commutator(A, B):
     return A @ B - B @ A
 
-def trotter_error_bound(pauli_op, T, r):
-    group_commuting_op = pauli_op.group_commuting()
+def get_trotter_number(pauli_op, t, epsilon, trotter_method):
+    '''Uses analytical bound to compute the Trotter number to reach error threshold epsilon'''
+    H = pauli_op.group_commuting()
+    L = len(H)
     error = 0
-    Gamma = len(group_commuting_op)
-    for gamma_1 in range(Gamma):
-        for gamma_2 in np.arange(gamma_1 + 1, Gamma):
-            error += np.linalg.norm(commutator(group_commuting_op[gamma_2], group_commuting_op[gamma_1]).simplify().coeffs, ord=1)
-    
-    return (T ** 2 / (2 * r)) * error
+    if trotter_method == "first_order":
+        for j in range(L):
+            for k in np.arange(j + 1, L):
+                error += np.linalg.norm(commutator(H[k], H[j]).simplify().coeffs, ord=1)
+        
+        return int((t ** 2 / (2 * epsilon)) * error)
+    elif trotter_method == "second_order":    
+        for j in range(L):
+            for k in np.arange(j+1, L):
+                for l in np.arange(j+1, L):
+                    error += np.linalg.norm(commutator(H[l], commutator(H[k], H[j])).simplify().coeffs, ord=1)
+
+                error += 0.5 * np.linalg.norm(commutator(H[j], commutator(H[j], H[k])).simplify().coeffs, ord=1)
+
+        return int(np.sqrt((t ** 3 / (12 * epsilon)) * error))
+    else:
+        raise ValueError(f"{trotter_method} not supported")
 
     
-def std_bin_trotter_fidelity(A, r):
-    pauli_op = SparsePauliOp.from_operator(A / r)  
+def std_bin_trotter_fidelity(H, r):
+    pauli_op = SparsePauliOp.from_operator(H / r)  
 
     circuit = LieTrotter(reps=1).synthesize(PauliEvolutionGate(pauli_op))
 
     U_one_trotter_layer = Operator(circuit).data
     U_trotter = np.linalg.matrix_power(U_one_trotter_layer, r)
-    U_exact = expm(-1j * A)
-    return np.abs((U_exact @ np.conj(U_trotter.T)).trace()) / A.shape[0]
+    U_exact = expm(-1j * H)
+    return np.abs((U_exact @ np.conj(U_trotter.T)).trace()) / H.shape[0]
 
-def std_bin_trotter_error(A, pauli_op, r, trotter_method):
+def std_bin_trotter_error(H, pauli_op, r, trotter_method):
+    '''Computes the Trotter error exactly using the full unitary matrix'''
 
     if trotter_method == "first_order":
         circuit = LieTrotter(reps=1).synthesize(PauliEvolutionGate(pauli_op / r))
 
         U_one_trotter_layer = Operator(circuit).data
         U_trotter = np.linalg.matrix_power(U_one_trotter_layer, r)
-        U_exact = expm(-1j * A)
+        U_exact = expm(-1j * H)
         return np.linalg.norm(U_exact - U_trotter, ord=2)
     
     elif trotter_method == "second_order":
@@ -310,7 +324,7 @@ def std_bin_trotter_error(A, pauli_op, r, trotter_method):
 
         U_one_trotter_layer = Operator(circuit).data
         U_trotter = np.linalg.matrix_power(U_one_trotter_layer, r)
-        U_exact = expm(-1j * A)
+        U_exact = expm(-1j * H)
         return np.linalg.norm(U_exact - U_trotter, ord=2)
     
     elif trotter_method == "randomized_first_order":
@@ -326,24 +340,52 @@ def std_bin_trotter_error(A, pauli_op, r, trotter_method):
                 circuit &= bkwd_circuit
 
         U_trotter = Operator(circuit).data
-        U_exact = expm(-1j * A)
+        U_exact = expm(-1j * H)
         return np.linalg.norm(U_exact - U_trotter, ord=2)
     
     else:
         raise ValueError(f"{trotter_method} not supported")
+    
+def std_bin_trotter_error_one_sample(H, pauli_op, r, trotter_method):
+    pauli_op_grouped = pauli_op.group_commuting()
+    psi = np.random.randn(H.shape[0]) + 1j * np.random.randn(H.shape[0])
+    psi /= np.linalg.norm(psi)
 
-def subspace_fidelity(n, H, adjacency_matrix, encoding):
-    U_exact = expm(-1j * adjacency_matrix)
-    codewords = get_codewords_1d(n, encoding=encoding, periodic=False)
-    U_subspace = expm(-1j * H)[codewords][:,codewords]
-    return np.abs((U_exact @ np.conj(U_subspace.T)).trace()) / U_exact.shape[0]
+    psi_no_trotter = expm_multiply(-1j * H, psi)
+    psi_trotter = psi
 
-def one_hot_trotter_fidelity(H, circuit, r):
-    circuit.remove_final_measurements(inplace=True)
-    U_one_trotter_layer = Operator(circuit).data
-    U_trotter = np.linalg.matrix_power(U_one_trotter_layer, r)
+    if trotter_method == "first_order":
+        for _ in range(r):
+            for j in range(len(pauli_op_grouped)):
+                H_j = pauli_op_grouped[j]
+                psi_trotter = expm_multiply(-1j * H_j.to_matrix(sparse=True) / r, psi_trotter)
+
+    elif trotter_method == "second_order":
+
+        for _ in range(r):
+            for j in range(len(pauli_op_grouped)):
+                H_j = pauli_op_grouped[j]
+                psi_trotter = expm_multiply(-1j * H_j.to_matrix(sparse=True) / (2 * r), psi_trotter)
+            for j in range(len(pauli_op_grouped))[::-1]:
+                H_j = pauli_op_grouped[j]
+                psi_trotter = expm_multiply(-1j * H_j.to_matrix(sparse=True) / (2 * r), psi_trotter)
+    else:
+        raise ValueError(f"{trotter_method} not supported")
+        
+    error = np.linalg.norm(psi_no_trotter - psi_trotter, ord=2)
+    return error
+
+def std_bin_trotter_error_sampling(H, pauli_op, r, trotter_method, num_samples, num_jobs):
+    '''Uses sampling to compute the Trotter error'''
+
+    res = Parallel(n_jobs=num_jobs)(delayed(std_bin_trotter_error_one_sample)(H, pauli_op, r, trotter_method) for _ in range(num_samples))
+  
+    return max(res)
+
+def subspace_fidelity(n, H_ebd, H, codewords):
     U_exact = expm(-1j * H)
-    return np.abs((U_exact @ np.conj(U_trotter.T)).trace()) / H.shape[0]
+    U_subspace = expm(-1j * H_ebd)[codewords][:,codewords]
+    return np.abs((U_exact @ np.conj(U_subspace.T)).trace()) / U_exact.shape[0]
 
 def subspace_trotter_error(A, B, T, r, n, encoding):
 
@@ -399,53 +441,3 @@ def get_H_terms_one_hot(n, H):
     H_terms.append(sum_delta_n(n, np.diag(H)))
 
     return H_terms, graph
-
-def get_H_pauli_op(lamb, adjacency_matrix):
-    n = adjacency_matrix.shape[0]
-    H_pen = []
-    for j in range(n):
-        op = n * ['I']
-        op[j] = 'Z'
-        H_pen.append(SparsePauliOp(''.join(op), lamb))
-
-    Q = []
-    for j in range(n):
-        for k in range(j):
-            if adjacency_matrix[j,k] != 0:
-                op = n * ['I']
-                op[j] = 'X'
-                op[k] = 'X'
-                Q.append(SparsePauliOp(''.join(op), adjacency_matrix[j,k]))
-
-    return (sum(H_pen) + sum(Q)).simplify()
-
-def one_hot_get_trotter_step_circ(N, dimension, T, r, adjacency_matrix, lamb, order):
-    circ = Circuit()
-
-    if order == 1:
-        # XX
-        for i in range(dimension):
-            for j in range(N):
-                for k in range(j):
-                    if adjacency_matrix[j,k] > 0:
-                        circ.xx(N * i + j, N * i + k, 2 * T / r)
-        # Z
-        for i in range(N * dimension):
-            circ.rz(i, 2 * lamb / r)
-    elif order == 2:
-        # Z
-        for i in range(N * dimension):
-            circ.rz(i, lamb / r)
-
-        # XX
-        for i in range(dimension):
-            for j in range(N):
-                for k in range(j):
-                    if adjacency_matrix[j,k] > 0:
-                        circ.xx(N * i + j, N * i + k, 2 * T / r)
-        # Z
-        for i in range(N * dimension):
-            circ.rz(i, lamb / r)
-    else:
-        raise ValueError("Trotter order must be 1 or 2")
-    return circ

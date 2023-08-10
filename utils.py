@@ -409,6 +409,8 @@ def get_codewords_1d(n : int, encoding, periodic):
     return codewords
 
 def get_codewords(N : int, dimension: int, encoding, periodic=False):
+    '''Returns codewords for a given encoding.'''
+
     n = num_qubits_per_dim(N, encoding)
     codewords_1d = get_codewords_1d(n, encoding, periodic)
     codewords = []
