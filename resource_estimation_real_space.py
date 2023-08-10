@@ -276,7 +276,7 @@ if __name__ == "__main__":
 
         H = get_real_space_H(N, a, b)
         n = num_qubits_per_dim(N, encoding)
-        codewords = get_codewords_1d(n, encoding, periodic=False)
+        codewords = get_codewords(N, dimension, encoding, periodic=False)
 
         tol = 0.5
 
@@ -341,7 +341,7 @@ if __name__ == "__main__":
 
         H = get_real_space_H(N, a, b)
         n = num_qubits_per_dim(N, encoding)
-        codewords = get_codewords_1d(n, encoding, periodic=False)
+        codewords = get_codewords(N, dimension, encoding, periodic=False)
 
         tol = 0.5
 

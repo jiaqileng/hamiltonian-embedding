@@ -173,7 +173,7 @@ if __name__ == "__main__":
         graph = get_glued_tree(h)
         N = graph.order()
         n = num_qubits_per_dim(N, encoding)
-        codewords = get_codewords_1d(n, encoding, periodic=False)
+        codewords = get_codewords(N, dimension, encoding, periodic=False)
 
         print(f"Running h = {h}, N = {N} for {encoding}", flush=True)
         adjacency_matrix = nx.adjacency_matrix(graph, nodelist=sorted(graph.nodes())).toarray()
@@ -225,7 +225,7 @@ if __name__ == "__main__":
         graph = get_glued_tree(h)
         N = graph.order()
         n = num_qubits_per_dim(N, encoding)
-        codewords = get_codewords_1d(n, encoding, periodic=False)
+        codewords = get_codewords(N, dimension, encoding, periodic=False)
 
         # Use bound to get Trotter number
         one_hot_trotter_steps_bound[i] = get_trotter_number(get_H_pauli_op(n, graph), T, error_tol, trotter_method)
