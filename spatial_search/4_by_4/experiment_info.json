@@ -1,0 +1,1 @@
+{"N": 4, "dimension": 2, "encoding": "unary", "T": 4.894117647058824, "num_time_points": 13, "lamb": 2, "r": 12, "num_shots": 200, "optimize_circuit": true, "use_error_mitigation": false, "use_second_order_pf": true}

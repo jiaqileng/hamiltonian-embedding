@@ -1,0 +1,1 @@
+{"N": 5, "dimension": 2, "encoding": "one-hot", "T": 6.568627450980392, "num_time_points": 13, "r": 5, "num_shots": 200, "optimize_circuit": false, "use_error_mitigation": false, "use_second_order_pf": true}
