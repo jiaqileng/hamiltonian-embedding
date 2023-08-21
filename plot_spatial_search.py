@@ -7,7 +7,7 @@ from scipy.optimize import curve_fit
 
 
 DATA_DIR = "resource_data"
-TASK_DIR = "spatial_search"
+TASK_DIR = "spatial_search_2d"
 
 CURR_DIR = DATA_DIR
 check_and_make_dir(CURR_DIR)
@@ -155,5 +155,5 @@ plt.xticks(ticks=np.arange(3, 16),
            rotation='horizontal', 
            fontsize=TICK_FONT)
 plt.yticks(fontsize=TICK_FONT)
-#plt.show()
-plt.savefig('spatial_search_2d_resource.png', dpi=300)
+plt.show()
+#plt.savefig('spatial_search_2d_resource.png', dpi=300)
