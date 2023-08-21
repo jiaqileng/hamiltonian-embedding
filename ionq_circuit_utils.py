@@ -262,6 +262,7 @@ def get_native_circuit(num_qubits, instructions):
     return op_list, qubit_phase
 
 def get_native_gate_counts(instructions):
+    '''Returns gate count for circuit with IonQ native gates'''
     one_qubit_gate_count = 0
     two_qubit_gate_count = 0
 
