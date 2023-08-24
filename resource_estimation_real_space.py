@@ -225,10 +225,10 @@ if __name__ == "__main__":
 
     num_jobs = 64
     print("Number of jobs:", num_jobs)
-    num_samples = 100
+    num_samples = 1000
 
     dimension = 1
-    error_tol = 1e-2
+    error_tol = 5e-2
     trotter_method = "randomized_first_order"
     print(f"Error tolerance: {error_tol : 0.2f}.")
     print(f"Method: {trotter_method}")
@@ -261,7 +261,7 @@ if __name__ == "__main__":
 
     print("\nRunning resource estimation for standard binary encoding")
     for i, N in enumerate(N_vals_binary):
-
+        start_time = time()
         binary_one_qubit_gate_count_per_trotter_step[i], binary_two_qubit_gate_count_per_trotter_step[i], binary_trotter_steps[i] = get_binary_resource_estimate(N, T, error_tol, a, b, trotter_method, num_samples, num_jobs)
 
         np.savez(join(CURR_DIR, f"std_binary_{trotter_method}.npz"),
@@ -269,6 +269,8 @@ if __name__ == "__main__":
                 binary_trotter_steps=binary_trotter_steps[:i+1],
                 binary_one_qubit_gate_count_per_trotter_step=binary_one_qubit_gate_count_per_trotter_step[:i+1],
                 binary_two_qubit_gate_count_per_trotter_step=binary_two_qubit_gate_count_per_trotter_step[:i+1])
+        
+        print(f"Finished N = {N}, time = {time() - start_time} seconds.", flush=True)
 
 
     # # Unary encoding

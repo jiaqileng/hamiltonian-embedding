@@ -522,16 +522,18 @@ if __name__ == "__main__":
     print("Resource estimation for 2D spatial search.")
     num_jobs = 64
     print("Number of jobs:", num_jobs)
-    num_samples = 100
+    num_samples = 1000
 
     dimension = 2
-    error_tol = 1e-2
+    error_tol = 5e-2
+    fidelity_tol = 1e-2
     trotter_method = "second_order"
 
     print(f"Error tolerance: {error_tol : 0.2f}.")
+    print(f"Fidelity tolerance: {fidelity_tol : 0.2f}.")
     print(f"Method: {trotter_method}")
 
-    N_vals_binary = np.arange(3, 15)
+    N_vals_binary = np.arange(3, 12)
     binary_trotter_steps = np.zeros(len(N_vals_binary))
     binary_one_qubit_gate_count_per_trotter_step = np.zeros(len(N_vals_binary))
     binary_two_qubit_gate_count_per_trotter_step = np.zeros(len(N_vals_binary))
@@ -541,7 +543,7 @@ if __name__ == "__main__":
     unary_one_qubit_gate_count_per_trotter_step = np.zeros(len(N_vals_unary), dtype=int)
     unary_two_qubit_gate_count_per_trotter_step = np.zeros(len(N_vals_unary), dtype=int)
 
-    N_vals_unary_bound = np.arange(3, 15)
+    N_vals_unary_bound = np.arange(3, 12)
     unary_trotter_steps_bound = np.zeros(len(N_vals_unary_bound), dtype=int)
     unary_one_qubit_gate_count_per_trotter_step_bound = np.zeros(len(N_vals_unary_bound), dtype=int)
     unary_two_qubit_gate_count_per_trotter_step_bound = np.zeros(len(N_vals_unary_bound), dtype=int)
@@ -551,7 +553,7 @@ if __name__ == "__main__":
     one_hot_one_qubit_gate_count_per_trotter_step = np.zeros(len(N_vals_one_hot), dtype=int)
     one_hot_two_qubit_gate_count_per_trotter_step = np.zeros(len(N_vals_one_hot), dtype=int)
 
-    N_vals_one_hot_bound = np.arange(3, 15)
+    N_vals_one_hot_bound = np.arange(3, 12)
     one_hot_trotter_steps_bound = np.zeros(len(N_vals_one_hot_bound), dtype=int)
     one_hot_one_qubit_gate_count_per_trotter_step_bound = np.zeros(len(N_vals_one_hot_bound), dtype=int)
     one_hot_two_qubit_gate_count_per_trotter_step_bound = np.zeros(len(N_vals_one_hot_bound), dtype=int)
@@ -559,7 +561,7 @@ if __name__ == "__main__":
 
     print("\nRunning resource estimation for standard binary encoding", flush=True)
     for i, N in enumerate(N_vals_binary):
-
+        start_time = time()
         binary_one_qubit_gate_count_per_trotter_step[i], binary_two_qubit_gate_count_per_trotter_step[i], binary_trotter_steps[i] = get_binary_resource_estimate(N, dimension, error_tol, trotter_method, num_samples, num_jobs)
 
         np.savez(join(CURR_DIR, f"std_binary_{trotter_method}.npz"),
@@ -567,6 +569,8 @@ if __name__ == "__main__":
                 binary_trotter_steps=binary_trotter_steps[:i+1],
                 binary_one_qubit_gate_count_per_trotter_step=binary_one_qubit_gate_count_per_trotter_step[:i+1],
                 binary_two_qubit_gate_count_per_trotter_step=binary_two_qubit_gate_count_per_trotter_step[:i+1])
+        
+        print(f"Finished N = {N}, time = {time() - start_time} seconds.", flush=True)
 
     # Unary encoding
     encoding = "unary"
@@ -594,12 +598,20 @@ if __name__ == "__main__":
         H_spatial_search = - gamma * L + H_oracle
         T = get_T_2d(N, H_spatial_search)
 
-        lamb = gamma * dimension * N * T
-        
-        H_ebd = get_H_spatial_search(n, lamb, gamma, encoding, dimension)
+        # lamb_min, lamb_max = 0, gamma * dimension * N * T
+        # while subspace_fidelity(n, T, get_H_spatial_search(n, lamb_max, gamma, encoding, dimension), (-gamma * L + H_oracle), codewords) < 1 - fidelity_tol:
+        #     lamb_max *= 2
+        # while lamb_max - lamb_min > 1e-2:
+        #     lamb = (lamb_min + lamb_max) / 2
+        #     if subspace_fidelity(n, T, get_H_spatial_search(n, lamb, gamma, encoding, dimension), (-gamma * L + H_oracle), codewords) < 1 - fidelity_tol:
+        #         lamb_min = lamb
+        #     else:
+        #         lamb_max = lamb
+        # lamb = lamb_max
+        # print(f"lamb = {lamb : 0.2f}")
+        lamb = gamma * N * dimension * T
 
-        # Check error restricted to subspace
-        print(f"Unitary fidelity: {subspace_fidelity(n, T, H_ebd, (-gamma * L + H_oracle), codewords) : 0.4f}")
+        H_ebd = get_H_spatial_search(n, lamb, gamma, encoding, dimension)
 
         # Estimate number of Trotter steps required
         r_min, r_max = 1, 10
@@ -635,6 +647,7 @@ if __name__ == "__main__":
 
         print(f"Running N = {N}", flush=True)
         n = num_qubits_per_dim(N, encoding)
+        codewords = get_codewords(N, dimension, encoding, periodic=False)
 
         # Compute the optimal gamma
         L = get_laplacian_lattice(N, d=dimension)
@@ -650,7 +663,18 @@ if __name__ == "__main__":
         H_spatial_search = - gamma * L + H_oracle
         T = get_T_2d(N, H_spatial_search)
 
-        lamb = gamma * dimension * N * T
+        # lamb_min, lamb_max = 0, gamma * dimension * N * T
+        # while subspace_fidelity(n, T, get_H_spatial_search(n, lamb_max, gamma, encoding, dimension), (-gamma * L + H_oracle), codewords) < 1 - fidelity_tol:
+        #     lamb_max *= 2
+        # while lamb_max - lamb_min > 1e-2:
+        #     lamb = (lamb_min + lamb_max) / 2
+        #     if subspace_fidelity(n, T, get_H_spatial_search(n, lamb, gamma, encoding, dimension), (-gamma * L + H_oracle), codewords) < 1 - fidelity_tol:
+        #         lamb_min = lamb
+        #     else:
+        #         lamb_max = lamb
+        # lamb = lamb_max
+        # print(f"lamb = {lamb : 0.2f}")
+        lamb = gamma * N * dimension * T
 
         # Use bound to get Trotter number
         unary_trotter_steps_bound[i] = get_trotter_number(get_H_pauli_op(n, lamb, gamma, encoding, dimension), T, error_tol, trotter_method)
@@ -669,7 +693,6 @@ if __name__ == "__main__":
     encoding = "one-hot"
     print(f"\nRunning resource estimation for {encoding} encoding", flush=True)
     device = LocalSimulator()
-    num_samples = 100
 
     for i, N in enumerate(N_vals_one_hot):
 
