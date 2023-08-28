@@ -1,1 +1,0 @@
-This directory contains data for unary embedding with `lamb = gamma * N * dimension * T`
