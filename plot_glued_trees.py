@@ -58,14 +58,14 @@ print(f"std binary scaling: {p_std_binary[0]}")
 #y_data_extrap = one_hot_trotter_steps_extrapolated * one_hot_two_qubit_gate_count_per_trotter_step_extrapolated
 #plt.plot(N_vals_one_hot_extrapolated, y_data_extrap, '--', color='orange', label="One-hot extrapolated", markersize=3)
 p_one_hot_bound = np.polyfit(np.log(N_vals_one_hot_bound), np.log(y_data_one_hot_bound), deg=1)
-plt.plot(N_vals_one_hot_bound, y_data_one_hot_bound, '--o', color="skyblue", label=fr"one-hot (theoretical) $\mathcal{{O}}\left(n^{{{p_one_hot_bound[0]:0.2f}}}\right)$", markersize=2, linewidth=0.7)
+plt.plot(N_vals_one_hot_bound, y_data_one_hot_bound, 'o', color="skyblue", label=fr"one-hot (theoretical) $\mathcal{{O}}\left(n^{{{p_one_hot_bound[0]:0.2f}}}\right)$", markersize=2)
+plt.plot(N_vals_one_hot_bound, np.exp(p_one_hot_bound[1]) * N_vals_binary **(p_one_hot_bound[0]), '--', color="skyblue", linewidth=0.7)
 print(f"one-hot (theoretical) scaling: {p_one_hot_bound[0]}")
 
 # One-hot empirical
-N_vals_one_hot_fit = np.arange(N_vals_one_hot[0], N_vals_binary[-1]+1)
 p_one_hot = np.polyfit(np.log(N_vals_one_hot), np.log(y_data_one_hot), deg=1)
 plt.plot(N_vals_one_hot, y_data_one_hot, 's', color="blue", label=fr"one-hot (empirical) $\mathcal{{O}}\left(n^{{{p_one_hot[0]:0.2f}}}\right)$", markersize=4)
-plt.plot(N_vals_binary, np.exp(p_one_hot[1]) * N_vals_binary **(p_one_hot[0]), 'b-', linewidth=1)
+plt.plot(N_vals_binary, np.exp(p_one_hot[1]) * N_vals_binary **(p_one_hot[0]), "-", color="blue", linewidth=1)
 print(f"one-hot (empirical) scaling: {p_one_hot[0]}")
 
 
