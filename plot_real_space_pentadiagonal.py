@@ -4,7 +4,7 @@ from os.path import join
 from utils import check_and_make_dir
 
 DATA_DIR = "resource_data"
-TASK_DIR = "real_space"
+TASK_DIR = "real_space_new_potential"
 
 CURR_DIR = DATA_DIR
 check_and_make_dir(CURR_DIR)
@@ -91,4 +91,4 @@ plt.xlabel(r"$d$" + " (number of levels in a subsystem)", fontsize=LABEL_FONT)
 plt.xticks(fontsize=TICK_FONT)
 plt.yticks(fontsize=TICK_FONT)
 # plt.show()
-plt.savefig('real_space_resource.png', dpi=300)
+plt.savefig('real_space_resource_pentadiagonal.png', dpi=300)
