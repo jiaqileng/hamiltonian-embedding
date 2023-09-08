@@ -214,7 +214,7 @@ def get_binary_resource_estimate(N, T, error_tol, a, b, trotter_method, num_samp
 if __name__ == "__main__":
 
     DATA_DIR = "resource_data"
-    TASK_DIR = "real_space_new_potential"
+    TASK_DIR = "real_space"
 
     CURR_DIR = DATA_DIR
     check_and_make_dir(CURR_DIR)
