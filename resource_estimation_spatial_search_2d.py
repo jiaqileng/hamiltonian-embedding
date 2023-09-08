@@ -75,9 +75,9 @@ def get_binary_resource_estimate(N, dimension, error_tol, trotter_method, num_sa
         for j in other_indices:
             H_spatial_search_padded[i,j] = 0
             H_spatial_search_padded[j,i] = 0
-    for i in other_indices:
-        for j in other_indices:
-            H_spatial_search_padded[i,j] = 0
+    # for i in other_indices:
+    #     for j in other_indices:
+    #         H_spatial_search_padded[i,j] = 0
 
     pauli_op = SparsePauliOp.from_operator(H_spatial_search_padded.toarray())
     
@@ -564,7 +564,7 @@ if __name__ == "__main__":
         start_time = time()
         binary_one_qubit_gate_count_per_trotter_step[i], binary_two_qubit_gate_count_per_trotter_step[i], binary_trotter_steps[i] = get_binary_resource_estimate(N, dimension, error_tol, trotter_method, num_samples, num_jobs)
 
-        np.savez(join(CURR_DIR, f"std_binary_{trotter_method}.npz"),
+        np.savez(join(CURR_DIR, f"std_binary_{trotter_method}_remove_edges.npz"),
                 N_vals_binary=N_vals_binary[:i+1],
                 binary_trotter_steps=binary_trotter_steps[:i+1],
                 binary_one_qubit_gate_count_per_trotter_step=binary_one_qubit_gate_count_per_trotter_step[:i+1],
