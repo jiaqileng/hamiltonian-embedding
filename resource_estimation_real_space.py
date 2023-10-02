@@ -166,13 +166,13 @@ def get_binary_resource_estimate(N, T, error_tol, a, b, trotter_method, num_samp
     
     print(f"N = {N}", flush=True)
 
-    # H_padded = get_real_space_H(2 ** int(np.ceil(np.log2(N))), a, b)
-    # for i in np.arange(N, 2 ** int(np.ceil(np.log2(N)))):
-    #     for j in range(N):
-    #         H_padded[i,j] = 0
-    #         H_padded[j,i] = 0
-    H = get_real_space_H(N, a, b)
-    H_padded = np.pad(H, (0, 2 ** int(np.ceil(np.log2(N))) - N))
+    H_padded = get_real_space_H(2 ** int(np.ceil(np.log2(N))), a, b)
+    for i in np.arange(N, 2 ** int(np.ceil(np.log2(N)))):
+        for j in range(N):
+            H_padded[i,j] = 0
+            H_padded[j,i] = 0
+    # H = get_real_space_H(N, a, b)
+    # H_padded = np.pad(H, (0, 2 ** int(np.ceil(np.log2(N))) - N))
 
     pauli_op = SparsePauliOp.from_operator(H_padded)
 
@@ -229,14 +229,14 @@ if __name__ == "__main__":
 
     dimension = 1
     error_tol = 5e-2
-    trotter_method = "randomized_first_order"
+    trotter_method = "second_order"
     print(f"Error tolerance: {error_tol : 0.2f}.")
     print(f"Method: {trotter_method}")
 
     a, b = 1, -1/2
     T = 5
 
-    N_vals_binary = np.arange(3, 64)
+    N_vals_binary = np.arange(3, 41)
     binary_trotter_steps = np.zeros(len(N_vals_binary))
     binary_one_qubit_gate_count_per_trotter_step = np.zeros(len(N_vals_binary))
     binary_two_qubit_gate_count_per_trotter_step = np.zeros(len(N_vals_binary))
@@ -254,7 +254,7 @@ if __name__ == "__main__":
     one_hot_one_qubit_gate_count_per_trotter_step = np.zeros(len(N_vals_one_hot))
     one_hot_two_qubit_gate_count_per_trotter_step = np.zeros(len(N_vals_one_hot))
 
-    N_vals_one_hot_bound = np.arange(3, 64)
+    N_vals_one_hot_bound = np.arange(3, 41)
     one_hot_trotter_steps_bound = np.zeros(len(N_vals_one_hot_bound), dtype=int)
     one_hot_one_qubit_gate_count_per_trotter_step_bound = np.zeros(len(N_vals_one_hot_bound), dtype=int)
     one_hot_two_qubit_gate_count_per_trotter_step_bound = np.zeros(len(N_vals_one_hot_bound), dtype=int)
@@ -264,7 +264,7 @@ if __name__ == "__main__":
         start_time = time()
         binary_one_qubit_gate_count_per_trotter_step[i], binary_two_qubit_gate_count_per_trotter_step[i], binary_trotter_steps[i] = get_binary_resource_estimate(N, T, error_tol, a, b, trotter_method, num_samples, num_jobs)
 
-        np.savez(join(CURR_DIR, f"std_binary_{trotter_method}.npz"),
+        np.savez(join(CURR_DIR, f"std_binary_{trotter_method}_remove_edges.npz"),
                 N_vals_binary=N_vals_binary[:i+1],
                 binary_trotter_steps=binary_trotter_steps[:i+1],
                 binary_one_qubit_gate_count_per_trotter_step=binary_one_qubit_gate_count_per_trotter_step[:i+1],
