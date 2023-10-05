@@ -116,4 +116,4 @@ plt.xticks(ticks=N_vals_binary,
            fontsize=TICK_FONT)
 plt.yticks(fontsize=TICK_FONT)
 # plt.show()
-plt.savefig('spatial_search_2d_resource.png', dpi=300)
+plt.savefig(join("resource_estimation_plots", 'spatial_search_2d_resource.png'), dpi=300)
