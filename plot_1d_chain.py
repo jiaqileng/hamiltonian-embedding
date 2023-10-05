@@ -4,7 +4,7 @@ from os.path import join
 from utils import check_and_make_dir
 
 DATA_DIR = "resource_data"
-TASK_DIR = "binary_tree"
+TASK_DIR = "1d_chain"
 
 CURR_DIR = DATA_DIR
 check_and_make_dir(CURR_DIR)
@@ -89,10 +89,10 @@ plt.xscale('log')
 plt.yscale('log')
 plt.legend(loc='upper left', fontsize=LEGEND_FONT, frameon=True, facecolor='white')
 plt.ylabel("Total gate count", fontsize=LABEL_FONT)
-plt.xlabel(r"$N$" + " (number of vertices on the binary tree)", fontsize=LABEL_FONT)
+plt.xlabel(r"$N$" + " (number of vertices on the chain)", fontsize=LABEL_FONT)
 #print(x_tick_labels)
 plt.xticks(fontsize=TICK_FONT)
 plt.yticks(fontsize=TICK_FONT)
 #plt.grid()
 # plt.show()
-plt.savefig('binary_tree_resource.png', dpi=300)
+plt.savefig('1d_chain_resource.png', dpi=300)
