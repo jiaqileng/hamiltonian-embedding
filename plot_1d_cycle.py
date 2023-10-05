@@ -84,12 +84,12 @@ plt.plot(N_vals_one_hot, y_data_one_hot, 's', color="blue", label=fr"one-hot (em
 plt.plot(N_vals_binary, np.exp(p_one_hot[1]) * N_vals_binary **(p_one_hot[0]), "-", color="blue", linewidth=1)
 print(f"one-hot (empirical) scaling: {p_one_hot[0]}")
 
-
+plt.title("Quantum walk on 1D cycle")
 plt.xscale('log')
 plt.yscale('log')
 plt.legend(loc='upper left', fontsize=LEGEND_FONT, frameon=True, facecolor='white')
 plt.ylabel("Total gate count", fontsize=LABEL_FONT)
-plt.xlabel(r"$N$" + " (number of vertices on the cycle)", fontsize=LABEL_FONT)
+plt.xlabel(r"$N$" + " (number of vertices)", fontsize=LABEL_FONT)
 #print(x_tick_labels)
 plt.xticks(fontsize=TICK_FONT)
 plt.yticks(fontsize=TICK_FONT)
