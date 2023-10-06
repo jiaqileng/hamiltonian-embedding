@@ -11,11 +11,13 @@ with np.load('data.npz') as data:
     ionq_err = data['kinetic_energy_err']
 
 T = 5
-a = 1
+a = 2
 b = -1/2
 num_time_points = 21
 t_vals = np.linspace(0, T, num_time_points)
-kinetic_energy_analytical = a/4 - (0.5 * a * expected_position_analytical ** 2 + b * expected_position_analytical)
+analytical_exp_x_sq = 5/16 * np.cos(np.sqrt(a) * t_vals)**2 - 0.125 * np.cos(np.sqrt(a) * t_vals) + 5/16
+analytical_exp_x = (b/a) * (np.cos(np.sqrt(a) * t_vals) - 1)
+kinetic_energy_analytical = (1+a)/4 - (0.5 * a * analytical_exp_x_sq + b * analytical_exp_x)
 
 #fig = plt.figure(figsize=(100/25.4, 100/25.4), dpi=300)
 # figure setup
