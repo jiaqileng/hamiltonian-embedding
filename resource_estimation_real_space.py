@@ -233,10 +233,10 @@ if __name__ == "__main__":
     print(f"Error tolerance: {error_tol : 0.2f}.")
     print(f"Method: {trotter_method}")
 
-    a, b = 1, -1/2
+    a, b = 2, -1/2
     T = 5
 
-    N_vals_binary = np.arange(3, 41)
+    N_vals_binary = np.arange(3, 33)
     binary_trotter_steps = np.zeros(len(N_vals_binary))
     binary_one_qubit_gate_count_per_trotter_step = np.zeros(len(N_vals_binary))
     binary_two_qubit_gate_count_per_trotter_step = np.zeros(len(N_vals_binary))
@@ -254,7 +254,7 @@ if __name__ == "__main__":
     one_hot_one_qubit_gate_count_per_trotter_step = np.zeros(len(N_vals_one_hot))
     one_hot_two_qubit_gate_count_per_trotter_step = np.zeros(len(N_vals_one_hot))
 
-    N_vals_one_hot_bound = np.arange(3, 41)
+    N_vals_one_hot_bound = np.arange(3, 33)
     one_hot_trotter_steps_bound = np.zeros(len(N_vals_one_hot_bound), dtype=int)
     one_hot_one_qubit_gate_count_per_trotter_step_bound = np.zeros(len(N_vals_one_hot_bound), dtype=int)
     one_hot_two_qubit_gate_count_per_trotter_step_bound = np.zeros(len(N_vals_one_hot_bound), dtype=int)
