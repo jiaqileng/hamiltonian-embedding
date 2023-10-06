@@ -27,7 +27,7 @@ for i in range(num_snapshots):
 
 y_tick_labels = []
 for i in range(0, N_nodes):
-    y_tick_labels.append(f'{i}')
+    y_tick_labels.append(f'{i+1}')
 
 
 # plt.rcParams['font.family'] = 'Helvetica'
