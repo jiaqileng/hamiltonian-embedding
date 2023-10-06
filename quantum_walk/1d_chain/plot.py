@@ -35,7 +35,7 @@ fig, axs = plt.subplots(2, 1, constrained_layout=True, facecolor="white", figsiz
 
 # Ideal heatmap
 im = axs[0].imshow(np.flip(ideal_data.T, axis=0),
-           cmap='plasma',
+           cmap='Reds',
            origin='lower')
 divider = make_axes_locatable(axs[0])
 cax = divider.append_axes("right", size="5%", pad=0.05)
@@ -48,7 +48,7 @@ axs[0].set_ylabel('Vertex', fontsize=LABEL_FONT)
 
 # IonQ heatmap
 im = axs[1].imshow(np.flip(ionq_data.T, axis=0),
-           cmap='plasma',
+           cmap='Reds',
            origin='lower')
 divider = make_axes_locatable(axs[1])
 cax = divider.append_axes("right", size="5%", pad=0.05)
