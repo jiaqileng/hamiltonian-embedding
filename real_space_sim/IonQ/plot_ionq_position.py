@@ -41,7 +41,7 @@ with np.load('data.npz') as data:
 # plt.rcParams['font.family'] = 'Helvetica'
 
 plt.figure()
-plt.plot(t_vals, expected_position_analytical, '-s', color="violet", label="Closed-form solution: " + r"$<\hat{x}>_t = \frac{1}{4}(1 - \cos(\sqrt{2} t))$", linewidth=1)
+plt.plot(t_vals, expected_position_analytical, '-s', color="violet", label="Closed-form solution: " + r"$\langle\hat{x}\rangle_t = \frac{1}{4}(1 - \cos(\sqrt{2} t))$", linewidth=1)
 #plt.plot(t_vals, x_obs_ham_ebd, '-o', label="Hamiltonian embedding")
 #plt.plot(t_vals, ideal_data, 'ro', label="Numerical simulation (5-level subsystem)", markersize=5)
 plt.errorbar(t_vals, ionq_data, ionq_err, fmt='--o', color='blue', ecolor='skyblue', label="Experiment on IonQ (one-hot embedding)", capsize=4)
