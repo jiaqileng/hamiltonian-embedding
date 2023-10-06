@@ -18,8 +18,8 @@ width = 0.3
 
 TICK_FONT = 5
 LEGEND_FONT = 6
-LABEL_FONT = 6
-TITLE_FONT = 7
+LABEL_FONT = 10
+TITLE_FONT = 12
 
 x_tick_labels = []
 for i in range(num_snapshots):
@@ -31,37 +31,33 @@ for i in range(0, N_nodes):
 
 
 # plt.rcParams['font.family'] = 'Helvetica'
+fig, axs = plt.subplots(2, 1, constrained_layout=True, facecolor="white", figsize=(5.5,9))
 
 # Ideal heatmap
-plt.figure()
-ax = plt.gca()
-im = ax.imshow(ideal_data.T,
+im = axs[0].imshow(np.flip(ideal_data.T, axis=0),
            cmap='plasma',
            origin='lower')
-divider = make_axes_locatable(ax)
+divider = make_axes_locatable(axs[0])
 cax = divider.append_axes("right", size="5%", pad=0.05)
 plt.colorbar(im, cax=cax)
-ax.set_xticks(ticks=np.arange(num_snapshots)[::2], labels=x_tick_labels[::2])
-ax.set_yticks(ticks=np.arange(N_nodes), labels=y_tick_labels)
-#ax.set_title('Numerical')
-ax.set_xlabel('Evolution time', fontsize=14)
-ax.set_ylabel('Vertex', fontsize=14)
-#plt.show()
-plt.savefig('numerical_heatmap_cycle.png', dpi=300)
+axs[0].set_xticks(ticks=np.arange(num_snapshots)[::2], labels=x_tick_labels[::2])
+axs[0].set_yticks(ticks=np.arange(N_nodes), labels=y_tick_labels)
+axs[0].set_title('Numerical', fontsize=TITLE_FONT)
+axs[0].set_xlabel('Evolution time', fontsize=LABEL_FONT)
+axs[0].set_ylabel('Vertex', fontsize=LABEL_FONT)
 
 # IonQ heatmap
-plt.figure()
-ax = plt.gca()
-im = ax.imshow(ionq_data.T,
+im = axs[1].imshow(np.flip(ionq_data.T, axis=0),
            cmap='plasma',
            origin='lower')
-divider = make_axes_locatable(ax)
+divider = make_axes_locatable(axs[1])
 cax = divider.append_axes("right", size="5%", pad=0.05)
 plt.colorbar(im, cax=cax)
-ax.set_xticks(ticks=np.arange(num_snapshots)[::2], labels=x_tick_labels[::2])
-ax.set_yticks(ticks=np.arange(N_nodes), labels=y_tick_labels)
-#ax.set_title('IonQ', fontsize=14)
-ax.set_xlabel('Evolution time', fontsize=14)
-ax.set_ylabel('Vertex', fontsize=14)
-#plt.show()
-plt.savefig('ionq_heatmap_cycle.png', dpi=300)
+axs[1].set_xticks(ticks=np.arange(num_snapshots)[::2], labels=x_tick_labels[::2])
+axs[1].set_yticks(ticks=np.arange(N_nodes), labels=y_tick_labels)
+axs[1].set_title('IonQ', fontsize=TITLE_FONT)
+axs[1].set_xlabel('Evolution time', fontsize=LABEL_FONT)
+axs[1].set_ylabel('Vertex', fontsize=LABEL_FONT)
+fig.suptitle("Quantum walk on 1D cycle", fontsize=14)
+# plt.show()
+plt.savefig('heatmap_cycle.png', dpi=300)
