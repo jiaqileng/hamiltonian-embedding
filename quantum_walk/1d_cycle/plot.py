@@ -34,7 +34,7 @@ for i in range(0, N_nodes):
 fig, axs = plt.subplots(2, 1, constrained_layout=True, facecolor="white", figsize=(5.5,9))
 
 # Ideal heatmap
-im = axs[0].imshow(np.flip(ideal_data.T, axis=0),
+im = axs[0].imshow(ideal_data.T,
            cmap='Reds',
            origin='lower')
 divider = make_axes_locatable(axs[0])
@@ -47,7 +47,7 @@ axs[0].set_xlabel('Evolution time', fontsize=LABEL_FONT)
 axs[0].set_ylabel('Vertex', fontsize=LABEL_FONT)
 
 # IonQ heatmap
-im = axs[1].imshow(np.flip(ionq_data.T, axis=0),
+im = axs[1].imshow(ionq_data.T,
            cmap='Reds',
            origin='lower')
 divider = make_axes_locatable(axs[1])
