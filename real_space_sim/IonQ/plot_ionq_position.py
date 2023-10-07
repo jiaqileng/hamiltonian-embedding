@@ -9,32 +9,12 @@ b = -1/2
 num_time_points = 21
 t_vals = np.linspace(0, T, num_time_points)
 
-plt.figure()
-x = np.linspace(-2, 3, 100)
-potential = 0.5 * a * x **2 + b * x
-normalize_c = (1 / np.pi) ** 0.5
-init_state = normalize_c * np.exp(- x**2)
-plt.plot(x, potential, 'r--', label=r'Potential field: $f(x) = x^2 - \frac{1}{2}x$', linewidth=3)
-plt.plot(x, init_state, '-', color='navy', label='Initial wave packet (vacuum state)', linewidth=3)
-plt.xlabel('x', fontsize=14)
-plt.ylabel('y', fontsize=14)
-plt.xticks(fontsize=10)
-plt.yticks(fontsize=10)
-plt.legend(fontsize=12)
-bottom, top = plt.ylim()
-plt.vlines(x=0, ymin=bottom, ymax=top)
-plt.text(0.12,1.2, r"$\langle \hat{x} \rangle = 0$", fontsize=14)
-plt.savefig('real_space_potential.png', dpi=300)
-# plt.show()
-
-
 # Load plot data
 with np.load('data.npz') as data:
     expected_position_analytical = data['expected_position_analytical']
     ideal_data = data['x_obs_ham_ebd']
     ionq_data = data['x_obs_ionq']
     ionq_err = data['x_obs_ionq_err']
-
 
 #fig = plt.figure(figsize=(100/25.4, 100/25.4), dpi=300)
 # figure setup
@@ -50,5 +30,6 @@ plt.xlabel(r"$t$ (evolution time)", fontsize=12)
 plt.xticks(fontsize=8)
 plt.yticks(fontsize=8)
 plt.legend(fontsize=11)
+plt.ylim(-0.25, 0.64)
 plt.savefig('real_space_ionq.png', dpi=300)
 # plt.show()
