@@ -1,0 +1,29 @@
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
+
+
+T = 5
+a = 2
+b = -1/2
+num_time_points = 21
+t_vals = np.linspace(0, T, num_time_points)
+
+plt.figure()
+x = np.linspace(-1.5, 2.5, 128)
+potential = 0.5 * a * x **2 + b * x
+normalize_c = (1 / np.pi) ** 0.5
+init_state = normalize_c * np.exp(- x**2)
+plt.plot(x, potential, 'r--', label=r'Potential field: $f(x) = x^2 - \frac{1}{2}x$', linewidth=3)
+plt.plot(x, init_state, '-', color='navy', label='Initial wave packet (vacuum state)', linewidth=3)
+plt.xlabel('x', fontsize=14)
+plt.ylabel('y', fontsize=14)
+plt.xticks(fontsize=10)
+plt.yticks(fontsize=10)
+plt.legend(fontsize=12)
+plt.ylim(-0.15, 4)
+bottom, top = plt.ylim()
+plt.vlines(x=0, ymin=bottom, ymax=2.5)
+plt.text(-0.25,2.6, r"$\langle \hat{x} \rangle = 0$", fontsize=14)
+plt.savefig('real_space_potential.png', dpi=300)
+# plt.show()

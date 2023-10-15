@@ -1,1 +1,1 @@
-{"N": 5, "dimension": 1, "encoding": "one-hot", "T": 5, "num_time_points": 21, "r": 18, "a": 1, "b": -0.5, "num_shots_z": 500, "num_shots_x": 1500, "use_error_mitigation": true}
+{"N": 5, "dimension": 1, "encoding": "one-hot", "T": 5, "num_time_points": 21, "r": 11, "a": 2, "b": -0.5, "num_shots_z": 500, "num_shots_x": 1500, "use_error_mitigation": true, "use_second_order_pf": false}

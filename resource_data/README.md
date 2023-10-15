@@ -1,0 +1,2 @@
+- For spatial search and real-space with standard binary, there are two files: `std_binary_{task}_pad_zeros.npz` fills the remainder of the matrix with zeros, while `std_binary_{task}_remove_edges.npz` starts from a larger embedding and removes edges between the target subgraph and the unused component.
+- For unary embedding, the choice of lamb (the penalty parameter) is found by binary search such that the unitary fidelity restricted to the encoding subspace is at least 0.99.
