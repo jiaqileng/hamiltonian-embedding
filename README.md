@@ -1,6 +1,8 @@
 # Hamiltonian Embedding
 
-This is a joint work by [Jiaqi Leng](https://jiaqileng.github.io/), [Joseph Li](https://jli0108.github.io/), [Yuxiang Peng](https://pickspeng.github.io/) and [Xiaodi Wu](https://www.cs.umd.edu/~xwu/).
+Hamiltonian embedding is a **hardware-efficient** approach to sparse Hamiltonian simulation that does not assume access to a black-box query model. This technique leverages both the *sparsity structure* of the input data and the *resource efficiency* of the underlying quantum hardware, enabling the deployment of interesting quantum applications on current quantum computers.
+
+This is a joint work by [Jiaqi Leng](https://jiaqileng.github.io/), [Joseph Li](https://jli0108.github.io/), [Yuxiang Peng](https://pickspeng.github.io/) and [Xiaodi Wu](https://www.cs.umd.edu/~xwu/). The manuscript is available on [arXiv](https://arxiv.org/abs/2401.08550).
 
 
 # Code organization
