@@ -2,6 +2,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 from os.path import join, dirname
 
+plt.rcParams.update({
+    "text.usetex": True,
+    "font.family": "sans-serif",
+    "font.sans-serif": "Helvetica",
+})
+
 T = 5
 a = 2
 b = -1/2
@@ -30,5 +36,6 @@ plt.xticks(fontsize=8)
 plt.yticks(fontsize=8)
 plt.legend(fontsize=11)
 plt.ylim(-0.25, 0.64)
-plt.savefig(join(dirname(__file__), 'real_space_ionq.png'), dpi=300)
+plt.title(r"Observable: $\hat{x}$", fontsize=22, y=1.02)
+plt.savefig(join(dirname(__file__), 'real_space_ionq_position.pdf'), dpi=300)
 # plt.show()
