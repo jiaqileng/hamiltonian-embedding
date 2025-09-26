@@ -70,7 +70,7 @@ For small system sizes, the empirical resource comparison may be run on a laptop
 
 After running these scripts, the data is saved in `resource_estimation/data`, and the scripts in `resource_estimation/plot` are used to generate the figures presented in the paper.
 
-## Citation
+# Citation
 
 ```
 @article{Leng2025expandinghardware,
