@@ -2,7 +2,8 @@
 
 Hamiltonian embedding is a **hardware-efficient** approach to sparse Hamiltonian simulation that does not assume access to a black-box query model. This technique leverages both the *sparsity structure* of the input data and the *resource efficiency* of the underlying quantum hardware, enabling the deployment of interesting quantum applications on current quantum computers.
 
-This is a joint work by [Jiaqi Leng](https://jiaqileng.github.io/), [Joseph Li](https://jli0108.github.io/), [Yuxiang Peng](https://pickspeng.github.io/) and [Xiaodi Wu](https://www.cs.umd.edu/~xwu/). The manuscript is available on [arXiv](https://arxiv.org/abs/2401.08550).
+This is a joint work by [Jiaqi Leng](https://jiaqileng.github.io/), [Joseph Li](https://jli0108.com), [Yuxiang Peng](https://pickspeng.github.io/) and [Xiaodi Wu](https://www.cs.umd.edu/~xwu/).
+The paper is published in [*Quantum*](https://quantum-journal.org/papers/q-2025-09-11-1857/).
 
 
 # Code organization
@@ -68,3 +69,21 @@ The typical runtime needed to run these scripts to completion is a few days (1-3
 For small system sizes, the empirical resource comparison may be run on a laptop or PC, typically taking a few minutes.
 
 After running these scripts, the data is saved in `resource_estimation/data`, and the scripts in `resource_estimation/plot` are used to generate the figures presented in the paper.
+
+## Citation
+
+```
+@article{Leng2025expandinghardware,
+  doi = {10.22331/q-2025-09-11-1857},
+  url = {https://doi.org/10.22331/q-2025-09-11-1857},
+  title = {Expanding {H}ardware-{E}fficiently {M}anipulable {H}ilbert {S}pace via {H}amiltonian {E}mbedding},
+  author = {Leng, Jiaqi and Li, Joseph and Peng, Yuxiang and Wu, Xiaodi},
+  journal = {{Quantum}},
+  issn = {2521-327X},
+  publisher = {{Verein zur F{\"{o}}rderung des Open Access Publizierens in den Quantenwissenschaften}},
+  volume = {9},
+  pages = {1857},
+  month = sep,
+  year = {2025}
+}
+```
